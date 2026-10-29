@@ -120,18 +120,18 @@ export const Login = () => {
           <div>
             <label className="block text-xs font-black text-[#222222] mb-1.5 uppercase tracking-wider">
               {activePortal === 'VENDOR'
-                ? 'Vendor Business Email'
+                ? 'Vendor Business Email or Mobile'
                 : activePortal === 'SUPER_ADMIN'
                 ? 'Super Admin Email'
-                : 'Customer Email'}
+                : 'Customer Email or Mobile'}
             </label>
             <div className="relative">
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder={activePortal === 'SUPER_ADMIN' ? 'admin@fairkart.dev' : 'name@example.com or +91 9876543210'}
                 className="w-full bg-[#F7F7F9] text-xs text-slate-800 rounded-xl px-4 py-2.5 pl-10 border border-slate-200 focus:outline-none focus:border-[#ED1C2E] focus:bg-white transition-colors"
               />
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -170,6 +170,49 @@ export const Login = () => {
             )}
           </motion.button>
         </form>
+
+        {/* Quick Demo Credentials Autofill */}
+        <div className="mt-5 p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+          <div className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+            <span>Quick Demo Accounts</span>
+            <span className="text-slate-400 font-normal">Click to autofill</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setActivePortal('CUSTOMER');
+                setEmail('user@fairkart.dev');
+                setPassword('Password@123');
+              }}
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 text-[10px] font-bold text-slate-700 hover:text-blue-600 transition truncate shadow-2xs"
+            >
+              Customer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivePortal('VENDOR');
+                setEmail('vendor@fairkart.dev');
+                setPassword('Password@123');
+              }}
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-amber-400 text-[10px] font-bold text-slate-700 hover:text-amber-600 transition truncate shadow-2xs"
+            >
+              Vendor
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivePortal('SUPER_ADMIN');
+                setEmail('admin@fairkart.dev');
+                setPassword('Password@123');
+              }}
+              className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-red-400 text-[10px] font-bold text-slate-700 hover:text-red-600 transition truncate shadow-2xs"
+            >
+              Super Admin
+            </button>
+          </div>
+        </div>
 
         <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2 text-center text-xs text-slate-500">
           {activePortal === 'CUSTOMER' && (

@@ -148,7 +148,21 @@ export const CustomerLogin = () => {
           </motion.button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2 text-center">
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+          <span className="text-[11px] text-slate-500">Need demo login?</span>
+          <button
+            type="button"
+            onClick={() => {
+              setEmailOrPhone('user@fairkart.dev');
+              setPassword('Password@123');
+            }}
+            className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Fill Demo (user@fairkart.dev)
+          </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2 text-center">
           <p className="text-xs text-slate-500">
             New to FairKart?{' '}
             <Link to="/register" className="text-blue-600 hover:underline font-bold">

@@ -222,6 +222,20 @@ export const SuperAdminLogin = () => {
                   </>
                 )}
               </motion.button>
+
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-slate-500">Need demo login?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@fairkart.dev');
+                    setPassword('Password@123');
+                  }}
+                  className="text-[11px] font-bold text-slate-900 hover:text-blue-700 hover:underline"
+                >
+                  Fill Demo (admin@fairkart.dev)
+                </button>
+              </div>
             </motion.form>
           ) : (
             <motion.form

@@ -227,7 +227,21 @@ export const VendorLogin = () => {
           </motion.button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5 text-center">
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+          <span className="text-[11px] text-slate-500">Need demo login?</span>
+          <button
+            type="button"
+            onClick={() => {
+              setEmailOrPhone('vendor@fairkart.dev');
+              setPassword('Password@123');
+            }}
+            className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline"
+          >
+            Fill Demo (vendor@fairkart.dev)
+          </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2.5 text-center">
           <p className="text-xs text-slate-500">
             New Vendor?{' '}
             <Link to="/vendor/register" className="text-blue-600 hover:underline font-bold">
