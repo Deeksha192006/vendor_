@@ -40,7 +40,7 @@ export const Unauthorized = () => {
         </div>
 
         <div className="inline-block px-3 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-wider mb-2">
-          403 — Access Denied
+          403: Access Denied
         </div>
 
         <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">

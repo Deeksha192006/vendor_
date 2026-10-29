@@ -12,6 +12,8 @@ import { tokenService } from './tokenService.js';
 import { ROLES } from '../constants/roles.js';
 
 import { mlmRewardService } from './mlmRewardService.js';
+import { legalDocumentService } from './legalDocumentService.js';
+import { LEGAL_DOCUMENT_TYPES } from '../models/LegalDocument.js';
 
 export const vendorOnboardingService = {
   async register(reqBody) {
@@ -21,11 +23,11 @@ export const vendorOnboardingService = {
       state, district, talukArea, pincode, fullAddress, associatedShopkeeper,
       identityDocumentType, identityDocumentNumber, identityDocumentUpload, panDocumentUpload,
       accountHolderName, bankName, accountNumber, ifscCode,
-      termsAccepted
+      termsAccepted, termsVersion
     } = reqBody;
 
     if (!termsAccepted) {
-      throw new ApiError(400, 'Terms and Conditions must be accepted', ERROR_CODES.BAD_REQUEST);
+      throw new ApiError(400, 'You must read and agree to the Vendor Terms & Conditions and Privacy Policy.', ERROR_CODES.BAD_REQUEST);
     }
 
     const existingUser = await User.findOne({
@@ -78,8 +80,31 @@ export const vendorOnboardingService = {
         referralCode: newReferralCode,
         referredBy: referrer ? referrer._id : null,
         referralPath,
+        termsAccepted: true,
+        termsAcceptedAt: new Date(),
+        termsVersion: termsVersion || '1.0',
       });
       await user.save();
+
+      // Persist immutable audit record of vendor legal agreement acceptance
+      try {
+        await legalDocumentService.recordConsent({
+          userId: user._id,
+          accountIdentifier: email.toLowerCase(),
+          role: ROLES.VENDOR,
+          documentType: LEGAL_DOCUMENT_TYPES.VENDOR_TERMS,
+          version: termsVersion,
+        });
+        await legalDocumentService.recordConsent({
+          userId: user._id,
+          accountIdentifier: email.toLowerCase(),
+          role: ROLES.VENDOR,
+          documentType: LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY,
+          version: termsVersion,
+        });
+      } catch (consentErr) {
+        console.error('[vendorOnboardingService] Failed to record vendor legal consent:', consentErr.message);
+      }
 
       // Trigger MLM registration rewards (100 Fair Coins to sponsor and 100 welcome coins to new vendor)
       if (referrer) {
@@ -92,6 +117,8 @@ export const vendorOnboardingService = {
 
       const slug = (storeName || name).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).substring(7);
 
+      const referrerVendor = referrer ? await Vendor.findOne({ userId: referrer._id }) : null;
+
       vendor = new Vendor({
         userId: user._id,
         storeName: storeName || name + " Store",
@@ -100,7 +127,9 @@ export const vendorOnboardingService = {
         phone: phone || '',
         status: 'UNDER_REVIEW',
         termsAccepted: true,
-        termsAcceptedAt: new Date()
+        termsAcceptedAt: new Date(),
+        referredByVendorId: referrerVendor ? referrerVendor._id : null,
+        referredByUserId: referrer ? referrer._id : null,
       });
       await vendor.save();
 

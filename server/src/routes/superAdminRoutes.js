@@ -174,6 +174,7 @@ import {
   getAdminCommissionOverview,
   getAdminCommissionTransactions,
   getAdminVendorCommissionsSummary,
+  getAdminProductCommissionsSummary,
   getAdminSettlements,
   approveAdminSettlement,
   processAdminSettlementPayout,
@@ -182,14 +183,29 @@ import {
 
 router.get('/commissions/overview', getAdminCommissionOverview);
 router.get('/commissions/vendors', getAdminVendorCommissionsSummary);
+router.get('/commissions/products', getAdminProductCommissionsSummary);
 router.get('/commissions/export', exportAdminCommissionsCsv);
 router.get('/commissions', getAdminCommissionTransactions);
 router.get('/platform-settlements', getAdminSettlements);
 router.post('/platform-settlements/:id/approve', approveAdminSettlement);
-router.post('/platform-settlements/:id/payout', processAdminSettlementPayout);
 router.get('/settlements', getAdminSettlements);
 router.post('/settlements/:id/approve', approveAdminSettlement);
 router.post('/settlements/:id/payout', processAdminSettlementPayout);
+
+// =========================================================================
+// 15B. Additional 3% Direct Vendor Referral Commission Management
+// =========================================================================
+import {
+  getAdminReferralOverview,
+  getAdminReferralTransactions,
+  payoutAdminReferralCommission,
+  exportAdminReferralCommissionsCsv,
+} from '../controllers/vendorReferralCommissionController.js';
+
+router.get('/referral-commissions/overview', getAdminReferralOverview);
+router.get('/referral-commissions/transactions', getAdminReferralTransactions);
+router.post('/referral-commissions/:id/payout', payoutAdminReferralCommission);
+router.get('/referral-commissions/export', exportAdminReferralCommissionsCsv);
 
 // =========================================================================
 // 16. Shared Dynamic Product Category Management
@@ -225,5 +241,27 @@ router.get('/daily-sales/export', exportDailySalesCsv);
 router.get('/payments', getAdminDailySales);
 router.get('/payments/daily-sales', getAdminDailySales);
 
+// =========================================================================
+// 18. Legal Documents & Policy Management (Super Admin Exclusive)
+// =========================================================================
+import {
+  getAdminLegalDocuments,
+  updateLegalDocument,
+  getLegalDocumentHistory,
+} from '../controllers/legalDocumentController.js';
+
+router.get('/legal-documents', getAdminLegalDocuments);
+router.put('/legal-documents/:type', updateLegalDocument);
+router.get('/legal-documents/:type/history', getLegalDocumentHistory);
+
+// =========================================================================
+// 19. Data Deletion Requests Management (Super Admin Exclusive)
+// =========================================================================
+import { dataDeletionController } from '../controllers/dataDeletionController.js';
+
+router.get('/data-deletion-requests', dataDeletionController.getAdminRequests);
+router.post('/data-deletion-requests/:requestId/process', dataDeletionController.processAdminRequest);
+
 export default router;
+
 

@@ -1,16 +1,16 @@
 {
-  "name": "FairKart",
-  "short_name": "FairKart",
-  "description": "Multi-Vendor Marketplace & Referral Platform",
+  "name": "BAAPOO MART",
+  "short_name": "BAAPOO MART",
+  "description": "BAAPOO MART - Buy Indian, Build India. India's Dedicated Marketplace for Verified Indigenous Products.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#ED1C2E",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/baapoo-mart-logo.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ]
 }

@@ -109,7 +109,77 @@ export const productService = {
     return product;
   },
 
+  validateProductImages(images) {
+    if (!images) return [];
+    if (!Array.isArray(images)) {
+      throw new ApiError(400, 'Product images must be provided as an array.', ERROR_CODES.BAD_REQUEST);
+    }
+    if (images.length > 5) {
+      throw new ApiError(400, 'A maximum of 5 images can be uploaded per product.', ERROR_CODES.BAD_REQUEST);
+    }
+
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB per image limit
+    const sanitizedImages = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      if (!img || typeof img !== 'string') {
+        throw new ApiError(400, `Image #${i + 1} has an invalid data format.`, ERROR_CODES.BAD_REQUEST);
+      }
+
+      const trimmed = img.trim();
+      if (!trimmed) continue;
+
+      if (trimmed.startsWith('data:')) {
+        // Base64 Data URI validation
+        const matches = trimmed.match(/^data:(image\/(jpeg|png|webp|jpg));base64,(.+)$/i);
+        if (!matches) {
+          throw new ApiError(
+            400,
+            `Image #${i + 1} format is not supported. Supported image formats are JPEG, PNG, and WebP.`,
+            ERROR_CODES.BAD_REQUEST
+          );
+        }
+        const base64Data = matches[3];
+        const buffer = Buffer.from(base64Data, 'base64');
+        if (buffer.length > MAX_SIZE_BYTES) {
+          throw new ApiError(
+            400,
+            `Image #${i + 1} file size exceeds maximum limit of 5MB.`,
+            ERROR_CODES.BAD_REQUEST
+          );
+        }
+        sanitizedImages.push(trimmed);
+      } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        // Standardized image URL validation
+        const isImageExt = /\.(jpeg|jpg|png|webp)($|\?)/i.test(trimmed);
+        const isKnownService = /(unsplash\.com|cloudinary\.com|images\.|img\.|cdn\.|picsum\.photos)/i.test(trimmed);
+        if (!isImageExt && !isKnownService && !trimmed.includes('image')) {
+          throw new ApiError(
+            400,
+            `Image #${i + 1} URL must point to a supported image format (JPEG, PNG, or WebP).`,
+            ERROR_CODES.BAD_REQUEST
+          );
+        }
+        sanitizedImages.push(trimmed);
+      } else {
+        throw new ApiError(
+          400,
+          `Image #${i + 1} must be a valid image URL or base64 encoded image data.`,
+          ERROR_CODES.BAD_REQUEST
+        );
+      }
+    }
+
+    return sanitizedImages;
+  },
+
   async createProduct(vendorId, productData) {
+    // Validate up to 5 images
+    if (productData.images !== undefined) {
+      productData.images = this.validateProductImages(productData.images);
+    }
+
     // Validate category exists and is active
     if (!productData.categoryId) {
       throw new ApiError(400, 'Product category is required', ERROR_CODES.BAD_REQUEST);
@@ -182,6 +252,11 @@ export const productService = {
 
     if (product.vendorId.toString() !== vendorId.toString()) {
       throw new ApiError(403, 'Unauthorized to edit this product', ERROR_CODES.FORBIDDEN);
+    }
+
+    // Validate up to 5 images
+    if (productData.images !== undefined) {
+      productData.images = this.validateProductImages(productData.images);
     }
 
     if (productData.price && productData.mrp && productData.price > productData.mrp) {

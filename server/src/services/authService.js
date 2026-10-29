@@ -14,13 +14,20 @@ import mongoose from 'mongoose';
 import { CustomerProfile } from '../models/CustomerProfile.js';
 import { UserAddress } from '../models/UserAddress.js';
 import { logAdminAction } from './auditLogService.js';
+import { legalDocumentService } from './legalDocumentService.js';
+import { LEGAL_DOCUMENT_TYPES } from '../models/LegalDocument.js';
 
 export const authService = {
   async register(reqBody) {
     const { 
       name, firstName, lastName, email, password, phone, mobileNumber,
-      referralCode, shopQrToken, address, city, state, country, pincode 
+      referralCode, shopQrToken, address, city, state, country, pincode,
+      termsAccepted, termsVersion
     } = reqBody;
+
+    if (!termsAccepted) {
+      throw new ApiError(400, 'You must read and agree to the Terms & Conditions and Privacy Policy to register.', ERROR_CODES.BAD_REQUEST);
+    }
 
     const normalizedEmail = email.toLowerCase().trim();
     const cleanPhone = (mobileNumber || phone || '').trim() || undefined;
@@ -101,8 +108,31 @@ export const authService = {
         referralPath,
         role: ROLES.CUSTOMER,
         attributedShopId: shop ? shop._id : null,
+        termsAccepted: true,
+        termsAcceptedAt: new Date(),
+        termsVersion: termsVersion || '1.0',
       });
       await user.save();
+
+      // Persist immutable audit record of legal agreement acceptance
+      try {
+        await legalDocumentService.recordConsent({
+          userId: user._id,
+          accountIdentifier: normalizedEmail,
+          role: ROLES.CUSTOMER,
+          documentType: LEGAL_DOCUMENT_TYPES.CUSTOMER_TERMS,
+          version: termsVersion,
+        });
+        await legalDocumentService.recordConsent({
+          userId: user._id,
+          accountIdentifier: normalizedEmail,
+          role: ROLES.CUSTOMER,
+          documentType: LEGAL_DOCUMENT_TYPES.PRIVACY_POLICY,
+          version: termsVersion,
+        });
+      } catch (consentErr) {
+        console.error('[authService] Failed to record customer legal consent:', consentErr.message);
+      }
 
       // Create linked CustomerProfile (Role-specific customer data model)
       let initialAddressId = null;
@@ -204,7 +234,7 @@ export const authService = {
     const input = (email || '').trim();
     const query = input.includes('@')
       ? { email: input.toLowerCase() }
-      : { $or: [{ phone: input }, { email: input.toLowerCase() }] };
+      : { $or: [{ phone: input }, { email: input.toLowerCase() }, { username: input.toLowerCase() }] };
 
     const user = await User.findOne(query).select('+passwordHash');
     if (!user) {
@@ -218,6 +248,10 @@ export const authService = {
 
     if (user.status === USER_STATUS.SUSPENDED) {
       throw new ApiError(403, 'Your account has been suspended. Please contact platform support.', ERROR_CODES.FORBIDDEN);
+    }
+
+    if (user.status === USER_STATUS.DELETED) {
+      throw new ApiError(403, 'This account has been closed and deleted per data deletion request.', ERROR_CODES.FORBIDDEN);
     }
 
     // Strict Canonical Portal Validation

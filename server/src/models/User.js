@@ -25,6 +25,14 @@ const userSchema = new mongoose.Schema(
       sparse: true,
       trim: true,
     },
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
     passwordHash: {
       type: String,
       required: [true, 'Password is required'],
@@ -98,6 +106,18 @@ const userSchema = new mongoose.Schema(
     phoneVerified: {
       type: Boolean,
       default: false,
+    },
+    termsAccepted: {
+      type: Boolean,
+      default: false,
+    },
+    termsAcceptedAt: {
+      type: Date,
+      default: null,
+    },
+    termsVersion: {
+      type: String,
+      default: null,
     },
     refreshTokenHash: {
       type: String,

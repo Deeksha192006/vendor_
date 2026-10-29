@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import { updateCoinBalance } from '../store/authSlice';
@@ -25,7 +25,14 @@ export const Checkout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const coinsToUse = location.state?.coinsToUse || 0;
+  const { user } = useSelector((state) => state.auth);
+
+  const initialCoins = Number(location.state?.coinsToUse) || 0;
+  const [coinsToUse, setCoinsToUse] = useState(initialCoins);
+  const [coinsInput, setCoinsInput] = useState(initialCoins ? String(initialCoins) : '');
+  const [availableCoins, setAvailableCoins] = useState(Number(user?.fairCoinBalance) || 0);
+  const [maxCoinsPerPurchase, setMaxCoinsPerPurchase] = useState(100);
+  const [coinAlert, setCoinAlert] = useState('');
   const selectedItemKeys = location.state?.selectedItemKeys || null;
 
   // Cart & Pricing State
@@ -72,13 +79,24 @@ export const Checkout = () => {
   const fetchCartAndAddresses = async () => {
     setCartLoading(true);
     try {
-      const [cartRes, addrRes] = await Promise.all([
+      const [cartRes, addrRes, walletRes] = await Promise.all([
         api.get('/cart').catch(() => ({ data: { data: { cart: null } } })),
         api.get('/users/me/addresses').catch(() => ({ data: { data: [] } })),
+        api.get('/fair-coins/wallet').catch(() => ({ data: { data: { wallet: null } } })),
       ]);
 
       const cartData = cartRes.data?.data?.cart;
       setCart(cartData);
+
+      const walletData = walletRes.data?.data?.wallet;
+      if (walletData) {
+        setAvailableCoins(Number(walletData.balance) || 0);
+        if (walletData.maxCoinsPerPurchase !== undefined) {
+          setMaxCoinsPerPurchase(Number(walletData.maxCoinsPerPurchase));
+        }
+      } else if (cartData?.maxCoinsPerPurchase !== undefined) {
+        setMaxCoinsPerPurchase(Number(cartData.maxCoinsPerPurchase));
+      }
 
       const addrs = addrRes.data?.data || [];
       setSavedAddresses(addrs);
@@ -102,6 +120,51 @@ export const Checkout = () => {
     } finally {
       setCartLoading(false);
     }
+  };
+
+  const handleApplyCoins = (e) => {
+    if (e) e.preventDefault();
+    setCoinAlert('');
+
+    const raw = String(coinsInput).trim();
+    if (!raw) {
+      setCoinsToUse(0);
+      return;
+    }
+
+    const entered = Number(raw);
+    if (isNaN(entered) || !Number.isInteger(entered) || entered < 0) {
+      setCoinAlert('Please enter a valid non-negative whole number of Fair Coins.');
+      return;
+    }
+
+    if (entered === 0) {
+      setCoinsToUse(0);
+      return;
+    }
+
+    if (entered > maxCoinsPerPurchase) {
+      setCoinAlert(
+        `You can use only ${maxCoinsPerPurchase} Fair Coins per purchase. Please reduce the amount and try again.`
+      );
+      return;
+    }
+
+    const currentBalance = availableCoins || user?.fairCoinBalance || 0;
+    if (entered > currentBalance) {
+      setCoinAlert(
+        `You cannot redeem more than your available balance of ${currentBalance} Fair Coins.`
+      );
+      return;
+    }
+
+    setCoinsToUse(entered);
+  };
+
+  const handleRemoveCoins = () => {
+    setCoinsToUse(0);
+    setCoinsInput('');
+    setCoinAlert('');
   };
 
   const handleSelectSavedAddress = (addr) => {
@@ -151,7 +214,7 @@ export const Checkout = () => {
         }
       });
 
-      alert('🎉 Payment verified and order placed successfully!');
+      alert('Payment verified and order placed successfully.');
       navigate('/account/orders');
     } catch (err) {
       setErrorMessage(err.response?.data?.message || 'Payment verification failed');
@@ -163,6 +226,14 @@ export const Checkout = () => {
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+
+    if (coinsToUse > maxCoinsPerPurchase) {
+      setErrorMessage(
+        `You can use only ${maxCoinsPerPurchase} Fair Coins per purchase. Please reduce the amount and try again.`
+      );
+      return;
+    }
+
     setSubmitting(true);
     setCheckoutStep('creating_order');
 
@@ -514,13 +585,82 @@ export const Checkout = () => {
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-[#222222] truncate">{item.productId?.name}</p>
-                  <p className="text-slate-500 text-xs">
-                    Qty: {item.quantity} × ₹{item.price}
-                  </p>
+                  <div className="text-slate-500 text-xs">
+                    {item.productId?.mrp && Number(item.productId.mrp) > Number(item.price) && (
+                      <span className="text-slate-400 line-through block text-[11px] leading-none mb-0.5">
+                        MRP: ₹{Number(item.productId.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    <span>Qty: {item.quantity} × ₹{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
-                <span className="font-black text-[#222222]">₹{(item.price * item.quantity).toFixed(2)}</span>
+                <span className="font-black text-[#222222]">₹{Number(item.price * item.quantity).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             ))}
+          </div>
+
+          {/* Fair Coins Redemption Section */}
+          <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                <Coins className="w-4 h-4 text-amber-600" />
+                Fair Coins Redemption
+              </span>
+              <span className="text-[11px] text-amber-800 font-bold">
+                Balance: {Number(availableCoins || user?.fairCoinBalance || 0).toLocaleString()} Coins
+              </span>
+            </div>
+
+            <p className="text-xs text-amber-900 font-medium">
+              You can use up to {maxCoinsPerPurchase} Fair Coins per purchase.
+            </p>
+
+            {coinAlert && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[#ED1C2E] text-xs font-bold flex items-start gap-1.5 shadow-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#ED1C2E]" />
+                <span>{coinAlert}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-0.5">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Enter Fair Coins"
+                value={coinsInput}
+                onChange={(e) => {
+                  setCoinsInput(e.target.value);
+                  setCoinAlert('');
+                }}
+                className="w-full bg-white text-xs text-slate-900 rounded-xl px-3 py-2 border border-amber-300 focus:outline-none focus:border-amber-500 font-bold"
+              />
+              <button
+                type="button"
+                onClick={handleApplyCoins}
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 transition-colors shadow-xs"
+              >
+                Apply
+              </button>
+              {coinsToUse > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRemoveCoins}
+                  className="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs shrink-0 transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-amber-700 font-bold pt-0.5">
+              <span>{coinsPerRupee} Fair Coins = ₹1</span>
+              {coinsToUse > 0 && (
+                <span className="text-emerald-700">
+                  Applied: {coinsToUse} coins (-₹{coinDiscount.toFixed(2)})
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Pricing Breakdown */}
@@ -539,7 +679,7 @@ export const Checkout = () => {
 
             {coinDiscount > 0 && (
               <div className="flex justify-between text-amber-700 font-bold">
-                <span>Coins ({coinsToUse} coins)</span>
+                <span>Fair Coins ({coinsToUse} coins)</span>
                 <span>-₹{coinDiscount.toFixed(2)}</span>
               </div>
             )}
@@ -632,7 +772,7 @@ export const Checkout = () => {
                 }}
                 className="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all"
               >
-                Simulate Success ✅
+                Simulate Payment Success
               </button>
             </div>
           </motion.div>

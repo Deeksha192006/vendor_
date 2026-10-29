@@ -98,7 +98,7 @@ export const VendorDashboard = () => {
       });
       if (res.data?.success) {
         setShowPaymentModal(false);
-        alert('🎉 Platform activation payment of ₹1,999 completed successfully! All vendor features are now fully unlocked.');
+        alert('Platform activation payment of ₹1,999 completed successfully! All vendor features are now fully unlocked.');
         loadAll();
       }
     } catch (err) {
@@ -245,7 +245,7 @@ export const VendorDashboard = () => {
                 ) : (
                   <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    Unpaid — Activation Needed
+                    Unpaid: Activation Needed
                   </span>
                 )}
               </div>
@@ -286,7 +286,7 @@ export const VendorDashboard = () => {
               }`}
             >
               <Plus className="w-4 h-4" />
-              <span>{isVendorPaid ? 'Add New Product' : '🔒 Add Product (Pay Fee)'}</span>
+              <span>{isVendorPaid ? 'Add New Product' : 'Add Product (Activation Required)'}</span>
             </button>
           </div>
         </div>

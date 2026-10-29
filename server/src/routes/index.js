@@ -40,10 +40,19 @@ import vendorReferralRoutes from './vendorReferralRoutes.js';
 import customerAttributionRoutes from './customerAttributionRoutes.js';
 import publicReferralRoutes from './publicReferralRoutes.js';
 import superAdminRoutes from './superAdminRoutes.js';
+import franchiseVendorRoutes from './franchiseVendorRoutes.js';
 import mfaRoutes from './mfaRoutes.js';
+import bannerRoutes from './bannerRoutes.js';
+import legalDocumentRoutes from './legalDocumentRoutes.js';
 
 const router = express.Router();
 
+router.use('/legal-documents', legalDocumentRoutes);
+router.use('/banners', bannerRoutes);
+router.use('/super-admin/banners', bannerRoutes);
+router.use('/super-admin/franchise-vendors', franchiseVendorRoutes);
+router.use('/auth/vendor-invitation', franchiseVendorRoutes);
+router.use('/vendor-invitation', franchiseVendorRoutes);
 router.use('/super-admin', superAdminRoutes);
 
 router.use('/health', healthRoutes);

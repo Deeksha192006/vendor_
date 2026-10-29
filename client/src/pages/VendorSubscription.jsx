@@ -197,7 +197,7 @@ export const VendorSubscription = () => {
                     Payment Verified & Subscription Activated
                   </span>
                   <h3 className="text-xl font-black mt-1">
-                    🎉 Vendor Plan Successfully Subscribed!
+                    Vendor Plan Successfully Subscribed!
                   </h3>
                 </div>
               </div>

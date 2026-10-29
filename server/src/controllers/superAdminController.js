@@ -1096,6 +1096,13 @@ export const getSettings = asyncWrapper(async (req, res) => {
     }
     sanitized[s.key] = s.value;
   }
+  // Enforce authoritative immutable conversion rule
+  sanitized.FAIR_COINS_PER_RUPEE = 10;
+  if (sanitized.MAX_FAIR_COINS_PER_PURCHASE === undefined || sanitized.MAX_FAIR_COINS_PER_PURCHASE === null) {
+    sanitized.MAX_FAIR_COINS_PER_PURCHASE = 100;
+  } else {
+    sanitized.MAX_FAIR_COINS_PER_PURCHASE = Number(sanitized.MAX_FAIR_COINS_PER_PURCHASE);
+  }
 
   return res.status(200).json(
     new ApiResponse(200, { settings: sanitized, raw: settingsList }, 'Settings retrieved')
@@ -1112,6 +1119,37 @@ export const updateSettings = asyncWrapper(async (req, res) => {
   const updatedEntries = [];
 
   for (const [key, value] of Object.entries(settings)) {
+    // Reject any attempts to alter the fixed Fair Coin conversion rate
+    if (key === 'FAIR_COINS_PER_RUPEE') {
+      if (Number(value) !== 10) {
+        throw new ApiError(
+          400,
+          'Fair Coin conversion rate is permanently fixed at 10 Fair Coins = ₹1 and cannot be modified.',
+          ERROR_CODES.BAD_REQUEST
+        );
+      }
+      continue;
+    }
+
+    // Validate Maximum Fair Coins Per Purchase: non-negative whole number
+    if (key === 'MAX_FAIR_COINS_PER_PURCHASE') {
+      const num = Number(value);
+      if (
+        value === '' ||
+        value === null ||
+        value === undefined ||
+        isNaN(num) ||
+        !Number.isInteger(num) ||
+        num < 0
+      ) {
+        throw new ApiError(
+          400,
+          'Maximum Fair Coins Per Purchase must be a valid non-negative whole number.',
+          ERROR_CODES.BAD_REQUEST
+        );
+      }
+    }
+
     // Prevent overriding system critical secrets through this endpoint
     if (/secret|token|password|key/i.test(key) && !/reward|fair_coin|limit/i.test(key)) {
       continue;
@@ -1119,7 +1157,12 @@ export const updateSettings = asyncWrapper(async (req, res) => {
 
     const doc = await Settings.findOneAndUpdate(
       { key },
-      { key, value, updatedBy: req.user._id },
+      {
+        key,
+        value: key === 'MAX_FAIR_COINS_PER_PURCHASE' ? Number(value) : value,
+        ...(key === 'MAX_FAIR_COINS_PER_PURCHASE' ? { category: 'FAIR_COINS' } : {}),
+        updatedBy: req.user._id,
+      },
       { upsert: true, new: true }
     );
     updatedEntries.push(doc);
@@ -2260,8 +2303,7 @@ export const createSuperAdminProduct = asyncWrapper(async (req, res) => {
   const generatedSku = sku?.trim()?.toUpperCase() || `SKU-SA-${Date.now().toString().slice(-6)}`;
   const cleanSlug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString().slice(-4)}`;
 
-  const coinRateSetting = await Settings.findOne({ key: 'FAIR_COINS_PER_RUPEE' });
-  const coinsPerRupee = coinRateSetting?.value ? Number(coinRateSetting.value) : 10;
+  const coinsPerRupee = 10;
   const calculatedFairCoinPrice = fairCoinPrice ? Number(fairCoinPrice) : Math.round(Number(price) * coinsPerRupee);
 
   const product = await Product.create({

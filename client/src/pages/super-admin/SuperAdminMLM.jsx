@@ -341,7 +341,7 @@ export const SuperAdminMLM = () => {
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">MLM & Referral Management</h1>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Referral Management</h1>
               <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-200 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> One-to-Many Architecture
               </span>

@@ -21,7 +21,13 @@ const productSchema = new mongoose.Schema(
     shortDescription: { type: String, default: '' },
     subCategory: { type: String, default: '' },
     brandName: { type: String, default: '' },
-    images: [{ type: String }],
+    images: {
+      type: [{ type: String }],
+      validate: [
+        (val) => !val || val.length <= 5,
+        'A maximum of 5 images can be stored per product',
+      ],
+    },
     mrp: { type: Number, required: true },
     price: { type: Number, required: true }, // Selling price
     fairCoinPrice: { type: Number, default: 0 }, // Fair coin price

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, Shield, KeyRound, Clock, Calendar, CheckCircle, LogOut } from 'lucide-react';
+import { User, Shield, KeyRound, Clock, Calendar, CheckCircle, LogOut, X } from 'lucide-react';
 import { superAdminService } from '../../services/superAdminService';
 import { logoutUser } from '../../store/authSlice';
 
@@ -84,7 +84,9 @@ export const SuperAdminProfile = () => {
       {error && (
         <motion.div variants={itemVariants} className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center justify-between font-medium">
           <span>{error}</span>
-          <button onClick={() => setError('')} className="text-rose-500 hover:text-rose-700 font-bold">✕</button>
+          <button onClick={() => setError('')} className="text-rose-500 hover:text-rose-700 font-bold" aria-label="Dismiss error">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </motion.div>
       )}
 
@@ -93,7 +95,9 @@ export const SuperAdminProfile = () => {
           <span className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-emerald-600" /> {successMsg}
           </span>
-          <button onClick={() => setSuccessMsg('')} className="text-emerald-500 hover:text-emerald-700 font-bold">✕</button>
+          <button onClick={() => setSuccessMsg('')} className="text-emerald-500 hover:text-emerald-700 font-bold" aria-label="Dismiss message">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </motion.div>
       )}
 

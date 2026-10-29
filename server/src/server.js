@@ -23,6 +23,14 @@ const startServer = async () => {
       console.warn('[Territories] Auto-seed check notice:', terrErr.message);
     }
 
+    // Auto-seed legal documents if empty
+    try {
+      const { legalDocumentService } = await import('./services/legalDocumentService.js');
+      await legalDocumentService.ensureDefaultDocuments();
+    } catch (legalErr) {
+      console.warn('[LegalDocuments] Auto-seed check notice:', legalErr.message);
+    }
+
     const PORT = env.PORT || 5000;
 
     // Start API only after MongoDB is connected

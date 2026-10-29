@@ -127,8 +127,8 @@ export const SuperAdminDashboard = () => {
       value: (metrics?.totalActiveSubscriptions || 0).toLocaleString(),
       sub: `${metrics?.activeCustomerSubsCount || 0} Customer VIPs • ${metrics?.activeVendorSubsCount || 0} Vendors`,
       icon: Crown,
-      color: 'from-purple-600 to-indigo-600',
-      bgLight: 'bg-purple-50 text-purple-700',
+      color: 'from-[#30358F] to-[#1E2356]',
+      bgLight: 'bg-blue-50 text-[#30358F]',
       link: '#subscriptions-section',
     },
     {
@@ -136,8 +136,8 @@ export const SuperAdminDashboard = () => {
       value: (metrics?.totalProducts || 0).toLocaleString(),
       sub: 'Live marketplace products',
       icon: ShoppingBag,
-      color: 'from-indigo-600 to-violet-600',
-      bgLight: 'bg-violet-50 text-violet-700',
+      color: 'from-[#30358F] to-[#252A68]',
+      bgLight: 'bg-indigo-50 text-indigo-700',
       link: '/super-admin/products',
     },
     {

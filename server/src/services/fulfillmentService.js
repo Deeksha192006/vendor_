@@ -34,7 +34,10 @@ export const fulfillmentService = {
 
       const vendorOrders = await VendorOrder.find({ parentOrderId: order._id }).session(session);
       if (vendorOrders.length === 0) {
-        throw new ApiError(400, 'No VendorOrders found for this parent order', ERROR_CODES.BAD_REQUEST);
+        // No vendor suborders to fulfill (e.g. direct platform inventory)
+        await session.commitTransaction();
+        session.endSession();
+        return;
       }
 
       // Resolve Delivery Zone by pincode (shippingAddress.zip)

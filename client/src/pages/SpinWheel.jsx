@@ -156,76 +156,210 @@ export const SpinWheel = () => {
       )}
 
       {/* Wheel Canvas Container */}
-      <div className="relative w-80 h-80 sm:w-96 sm:h-96 mx-auto flex items-center justify-center py-4">
-        {/* Top Indicator Pointer (Golden Teardrop Pin / Triangle at top) */}
-        <div className="absolute -top-2 z-30 w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-t-[28px] border-t-amber-500 filter drop-shadow-[0_4px_8px_rgba(245,158,11,0.5)]" />
+      <div className="relative w-[340px] h-[340px] xs:w-[390px] xs:h-[390px] sm:w-[460px] sm:h-[460px] md:w-[500px] md:h-[500px] mx-auto flex items-center justify-center my-6">
+        {/* Top Indicator Pointer (Luxury 3D Golden Teardrop Needle Pin) */}
+        <div className="absolute -top-3 z-30 filter drop-shadow-[0_8px_16px_rgba(245,158,11,0.65)] pointer-events-none">
+          <svg width="46" height="54" viewBox="0 0 46 54" fill="none">
+            <path
+              d="M 23 52 L 6 14 A 17 17 0 0 1 40 14 Z"
+              fill="url(#pointerGoldGrad)"
+              stroke="#b45309"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            {/* Center Ruby Jewel Accent */}
+            <circle cx="23" cy="18" r="8" fill="#dc2626" stroke="#ffffff" strokeWidth="2" />
+            <circle cx="21" cy="15.5" r="2.5" fill="#ffffff" opacity="0.85" />
+          </svg>
+        </div>
 
         {/* Animated 5-Division SVG Wheel */}
         <motion.div
           animate={controls}
-          className="w-full h-full rounded-full shadow-2xl relative overflow-hidden bg-white"
+          className="w-full h-full rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.18)] relative overflow-hidden bg-white border-4 border-white"
         >
-          <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-            {rewards.map((reward, i) => {
-              const count = rewards.length || 5; // 5 divisions = 72 deg
-              const angle = 360 / count;
-              const startAngle = i * angle;
-              const endAngle = (i + 1) * angle;
+          <svg viewBox="0 0 500 500" className="w-full h-full select-none">
+            <defs>
+              {/* Outer Golden Gradient */}
+              <linearGradient id="pointerGoldGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#fef08a" />
+                <stop offset="50%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#b45309" />
+              </linearGradient>
 
-              const x1 = 50 + 50 * Math.cos((Math.PI * startAngle) / 180);
-              const y1 = 50 + 50 * Math.sin((Math.PI * startAngle) / 180);
-              const x2 = 50 + 50 * Math.cos((Math.PI * endAngle) / 180);
-              const y2 = 50 + 50 * Math.sin((Math.PI * endAngle) / 180);
+              {/* Text Shadow for Crisp Contrast */}
+              <filter id="wheelTextShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.8" />
+              </filter>
 
-              const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 0 1 ${x2} ${y2} Z`;
+              {/* Dynamic Slices ClipPaths so text NEVER bleeds outside division */}
+              {rewards.map((_, i) => {
+                const count = rewards.length || 5;
+                const segAngle = 360 / count;
+                const startA = i * segAngle;
+                const endA = (i + 1) * segAngle;
+                const R = 250;
+                const sx1 = 250 + R * Math.sin((startA * Math.PI) / 180);
+                const sy1 = 250 - R * Math.cos((startA * Math.PI) / 180);
+                const sx2 = 250 + R * Math.sin((endA * Math.PI) / 180);
+                const sy2 = 250 - R * Math.cos((endA * Math.PI) / 180);
+                const d = `M 250 250 L ${sx1.toFixed(2)} ${sy1.toFixed(2)} A ${R} ${R} 0 0 1 ${sx2.toFixed(2)} ${sy2.toFixed(2)} Z`;
 
-              return (
-                <path
-                  key={i}
-                  d={pathData}
-                  fill={reward.color || (i % 2 === 0 ? '#eab308' : '#15803d')}
-                  stroke="#ffffff"
-                  strokeWidth="0.8"
-                />
-              );
-            })}
-          </svg>
+                return (
+                  <clipPath id={`slice-clip-${i}`} key={`clip-${i}`}>
+                    <path d={d} />
+                  </clipPath>
+                );
+              })}
+            </defs>
 
-          {/* Dynamic Radial Labels Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            {/* Slices Rendering with Embedded Radial Labels & Icons */}
             {rewards.map((reward, i) => {
               const count = rewards.length || 5;
-              const angle = (360 / count) * i + (360 / count) / 2;
+              const segAngle = 360 / count;
+              const startA = i * segAngle;
+              const endA = (i + 1) * segAngle;
+              const midA = (i + 0.5) * segAngle;
+              const R = 250;
+
+              const sx1 = 250 + R * Math.sin((startA * Math.PI) / 180);
+              const sy1 = 250 - R * Math.cos((startA * Math.PI) / 180);
+              const sx2 = 250 + R * Math.sin((endA * Math.PI) / 180);
+              const sy2 = 250 - R * Math.cos((endA * Math.PI) / 180);
+              const slicePath = `M 250 250 L ${sx1.toFixed(2)} ${sy1.toFixed(2)} A ${R} ${R} 0 0 1 ${sx2.toFixed(2)} ${sy2.toFixed(2)} Z`;
+
+              // Modern vibrant slice color palette fallback
+              const PALETTE = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1'];
+              const sliceColor = reward.color || PALETTE[i % PALETTE.length];
+
+              // Parse title and subtext to ensure clean containment
               const isProduct = reward.type === 'PRODUCT';
+              const rawTitle = (reward.title || reward.productTitle || '').trim();
+              const upperTitle = rawTitle.toUpperCase();
+
+              let line1 = '';
+              let line2 = '';
+              let iconType = 'coin';
+
+              if (isProduct) {
+                line1 = 'FREE';
+                line2 = rawTitle.length > 12 ? rawTitle.slice(0, 11) + '…' : rawTitle;
+                iconType = 'product';
+              } else if (upperTitle.includes('TRY') || upperTitle.includes('AGAIN')) {
+                line1 = 'TRY';
+                line2 = 'AGAIN';
+                iconType = 'retry';
+              } else {
+                const numMatch = rawTitle.match(/\d+/);
+                const val = reward.value || (numMatch ? numMatch[0] : '');
+                if (val) {
+                  line1 = `${val}`;
+                  line2 = 'FAIR COINS';
+                  iconType = 'coin';
+                } else {
+                  const parts = rawTitle.split(' ');
+                  line1 = parts[0] || 'REWARD';
+                  line2 = parts.slice(1).join(' ') || '';
+                  iconType = 'coin';
+                }
+              }
 
               return (
-                <div
-                  key={i}
-                  className="absolute w-full text-center text-[11px] sm:text-xs font-black text-white uppercase tracking-wider drop-shadow-md px-2 truncate flex items-center justify-center gap-1"
-                  style={{
-                    transform: `rotate(${angle}deg) translate(110px) rotate(90deg)`,
-                  }}
-                >
-                  {isProduct ? '🎁 ' : '🪙 '}
-                  <span>{reward.title || reward.productTitle}</span>
-                </div>
+                <g key={i}>
+                  {/* Sector Background Slice with crisp white divider */}
+                  <path
+                    d={slicePath}
+                    fill={sliceColor}
+                    stroke="#ffffff"
+                    strokeWidth="3.5"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Division Content strictly clipped to this slice so letters NEVER cross boundary */}
+                  <g clipPath={`url(#slice-clip-${i})`}>
+                    <g transform={`rotate(${midA} 250 250)`}>
+                      {/* Reward Badge / Icon strictly inside the division */}
+                      {iconType === 'product' && (
+                        <g transform="translate(250, 56)">
+                          <rect x="-11" y="-9" width="22" height="18" rx="2.5" fill="#34d399" stroke="#065f46" strokeWidth="1.5" />
+                          <rect x="-13" y="-12" width="26" height="5.5" rx="1.5" fill="#6ee7b7" stroke="#065f46" strokeWidth="1" />
+                          <line x1="0" y1="-12" x2="0" y2="9" stroke="#ffffff" strokeWidth="2.5" />
+                          <line x1="-11" y1="0" x2="11" y2="0" stroke="#ffffff" strokeWidth="2.5" />
+                        </g>
+                      )}
+
+                      {iconType === 'retry' && (
+                        <g transform="translate(250, 56)">
+                          <circle cx="0" cy="0" r="12" fill="rgba(255,255,255,0.25)" stroke="#ffffff" strokeWidth="1" />
+                          <path d="M 0 -8 L 2.5 -2.5 L 8 0 L 2.5 2.5 L 0 8 L -2.5 2.5 L -8 0 L -2.5 -2.5 Z" fill="#ffffff" />
+                        </g>
+                      )}
+
+                      {iconType === 'coin' && (
+                        <g transform="translate(250, 56)">
+                          <circle cx="0" cy="0" r="13" fill="#fef08a" stroke="#b45309" strokeWidth="2" />
+                          <circle cx="0" cy="0" r="10" fill="#f59e0b" />
+                          <text x="0" y="3.5" textAnchor="middle" fill="#78350f" fontSize="9.5" fontWeight="900">FC</text>
+                        </g>
+                      )}
+
+                      {/* Main Value Line (Bold & Large) */}
+                      <text
+                        x="250"
+                        y="92"
+                        textAnchor="middle"
+                        fill="#ffffff"
+                        fontSize={line1.length > 5 ? '17' : '22'}
+                        fontWeight="900"
+                        letterSpacing="0.5"
+                        filter="url(#wheelTextShadow)"
+                        className="select-none pointer-events-none"
+                      >
+                        {line1}
+                      </text>
+
+                      {/* Subtitle / Unit Line (Contained within wedge) */}
+                      {line2 && (
+                        <text
+                          x="250"
+                          y="112"
+                          textAnchor="middle"
+                          fill="rgba(255, 255, 255, 0.95)"
+                          fontSize={line2.length > 10 ? '9.5' : '11'}
+                          fontWeight="800"
+                          letterSpacing="0.8"
+                          filter="url(#wheelTextShadow)"
+                          className="select-none pointer-events-none uppercase"
+                        >
+                          {line2}
+                        </text>
+                      )}
+                    </g>
+                  </g>
+                </g>
               );
             })}
-          </div>
+
+            {/* Clean Outer Wheel Rim Border (No Black Ring) */}
+            <circle cx="250" cy="250" r="248" fill="none" stroke="#ffffff" strokeWidth="3" />
+          </svg>
         </motion.div>
 
-        {/* Center Spin Button (Black Teardrop / Sleek Circular Pin) */}
+        {/* Center Spin Button (Opaque Circular Core Pin) */}
         <button
           onClick={handleSpin}
           disabled={spinning || !isEligible}
-          className="absolute z-20 w-24 h-24 rounded-full bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-800 hover:scale-105 active:scale-95 text-white font-black text-lg shadow-2xl flex flex-col items-center justify-center border-4 border-amber-400 transition-all disabled:opacity-50 disabled:scale-100 cursor-pointer disabled:cursor-not-allowed"
+          style={{ backgroundColor: '#0f172a' }}
+          className="absolute z-20 w-28 h-28 sm:w-32 sm:h-32 rounded-full hover:scale-105 active:scale-95 text-white font-black shadow-[0_10px_30px_rgba(0,0,0,0.4)] flex flex-col items-center justify-center border-4 border-amber-400 transition-all disabled:opacity-50 disabled:scale-100 cursor-pointer disabled:cursor-not-allowed"
         >
           {spinning ? (
-            <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+            <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
           ) : (
             <>
-              <span className="text-amber-400 tracking-wider">SPIN</span>
-              {cost > 0 && <span className="text-[10px] font-bold text-slate-300">{cost} FC</span>}
+              <span className="text-amber-400 tracking-wider text-xl font-black drop-shadow-sm">SPIN</span>
+              <span className="text-[11px] font-bold text-slate-300 mt-0.5">
+                {cost === 0 ? 'FREE' : `${cost} FC`}
+              </span>
             </>
           )}
         </button>
@@ -249,7 +383,7 @@ export const SpinWheel = () => {
               </div>
             )}
             <div>
-              <div className="font-black text-base text-slate-900">🎉 Congratulations!</div>
+              <div className="font-black text-base text-slate-900">Congratulations!</div>
               <div className="text-xs font-semibold text-slate-600 mt-0.5">
                 {wonReward.type === 'PRODUCT'
                   ? `You won a free Product: ${wonReward.productTitle || wonReward.title}`

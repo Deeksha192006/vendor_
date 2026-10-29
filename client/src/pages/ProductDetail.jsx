@@ -20,11 +20,13 @@ import {
   Minus,
   Zap
 } from 'lucide-react';
+import ProductCard from '../components/ProductCard';
 
 export const ProductDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
@@ -103,6 +105,17 @@ export const ProductDetail = () => {
       // Fetch reviews once product is loaded
       fetchReviews(prod._id);
 
+      // Fetch related products from category
+      const catParam = prod.categoryId?.slug || prod.category;
+      if (catParam) {
+        api.get('/products', { params: { category: catParam, limit: 5 } })
+          .then((catRes) => {
+            const list = catRes.data?.data?.products || [];
+            setRelatedProducts(list.filter((p) => p._id !== prod._id).slice(0, 4));
+          })
+          .catch(() => {});
+      }
+
       // Check wishlist for this product
       api.get('/wishlist').then((wRes) => {
         if (wRes.data?.success && wRes.data.data.wishlist) {
@@ -138,9 +151,10 @@ export const ProductDetail = () => {
     if (!product) return null;
     
     let name = product.name;
-    let originalPrice = product.price;
-    let discountPrice = product.discountPrice || 0;
-    let sellingPrice = discountPrice > 0 ? discountPrice : originalPrice;
+    let originalPrice = Number(product.price || 0);
+    let discountPrice = Number(product.discountPrice || 0);
+    let sellingPrice = discountPrice > 0 && discountPrice < originalPrice ? discountPrice : originalPrice;
+    let mrpVal = Number(product.mrp || product.originalPrice || 0);
     let stock = product.stock;
     let sku = product.sku;
     let images = product.images && product.images.length > 0
@@ -151,9 +165,10 @@ export const ProductDetail = () => {
       const variant = product.variants.find((v) => v.sku === selectedVariantSku);
       if (variant) {
         name = `${product.name} - ${variant.name}`;
-        originalPrice = variant.price;
-        discountPrice = variant.discountPrice || 0;
-        sellingPrice = discountPrice > 0 ? discountPrice : originalPrice;
+        originalPrice = Number(variant.price || originalPrice);
+        discountPrice = Number(variant.discountPrice || 0);
+        sellingPrice = discountPrice > 0 && discountPrice < originalPrice ? discountPrice : originalPrice;
+        if (variant.mrp) mrpVal = Number(variant.mrp);
         stock = variant.stock;
         sku = variant.sku;
         if (variant.images && variant.images.length > 0) {
@@ -162,7 +177,10 @@ export const ProductDetail = () => {
       }
     }
 
-    return { name, price: originalPrice, discountPrice, sellingPrice, stock, sku, images };
+    const candidateMrp = mrpVal > 0 ? mrpVal : (discountPrice > 0 && originalPrice > sellingPrice ? originalPrice : 0);
+    const effectiveMrp = candidateMrp > sellingPrice ? candidateMrp : null;
+
+    return { name, price: originalPrice, discountPrice, sellingPrice, mrp: effectiveMrp, stock, sku, images };
   };
 
   const handleAddToCart = async () => {
@@ -269,10 +287,10 @@ export const ProductDetail = () => {
 
   const currentImage = details.images[activeImageIndex] || details.images[0];
 
-  const hasDiscount = details.discountPrice > 0 && details.discountPrice < details.price;
+  const hasDiscount = Boolean(details.mrp && details.mrp > details.sellingPrice);
   const discountPct = hasDiscount
-    ? Math.round(((details.price - details.discountPrice) / details.price) * 100)
-    : product.discountValue || 0;
+    ? Math.round(((details.mrp - details.sellingPrice) / details.mrp) * 100)
+    : (product.discountValue || 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10 bg-[#FFFFFF] min-h-screen">
@@ -316,7 +334,7 @@ export const ProductDetail = () => {
               )}
               {isIndianProduct && (
                 <span className="px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider bg-[#30358F] text-white shadow-xs flex items-center gap-1">
-                  <span>🇮🇳</span> Made in India
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#F7941D]" /> Made in India
                 </span>
               )}
             </div>
@@ -325,7 +343,8 @@ export const ProductDetail = () => {
             <button
               onClick={handleToggleWishlist}
               disabled={wishlistLoading}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[#ED1C2E] hover:border-[#ED1C2E]/40 transition-colors shadow-xs"
+              aria-label={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+              className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[#ED1C2E] hover:border-[#ED1C2E]/40 transition-colors shadow-xs"
               title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-[#ED1C2E] text-[#ED1C2E]' : ''}`} />
@@ -334,16 +353,18 @@ export const ProductDetail = () => {
 
           {/* Thumbnails row */}
           {details.images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div className="flex gap-3 overflow-x-auto pb-1" role="group" aria-label="Product image gallery thumbnails">
               {details.images.map((img, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => setActiveImageIndex(idx)}
+                  aria-label={`View ${details.name} image ${idx + 1} of ${details.images.length}`}
                   className={`w-16 h-16 rounded-xl border-2 overflow-hidden bg-[#F7F7F9] shrink-0 transition-all ${
-                    activeImageIndex === idx ? 'border-[#ED1C2E] shadow-xs' : 'border-slate-200 hover:border-slate-300'
+                    activeImageIndex === idx ? 'border-[#ED1C2E] shadow-xs ring-2 ring-[#ED1C2E]/20' : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <img src={img} alt="" className="w-full h-full object-contain p-1" />
+                  <img src={img} alt={`${details.name} thumbnail ${idx + 1}`} className="w-full h-full object-contain p-1" />
                 </button>
               ))}
             </div>
@@ -371,29 +392,44 @@ export const ProductDetail = () => {
 
             {/* Ratings Header */}
             <div className="flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                <span>{ratingAvg > 0 ? ratingAvg.toFixed(1) : '4.8'}</span>
-                <Star className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              </div>
-              <span className="text-slate-500 font-semibold">({reviewsSummary.totalReviews} verified ratings)</span>
+              {reviewsSummary.totalReviews > 0 ? (
+                <>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                    <span>{ratingAvg.toFixed(1)}</span>
+                    <Star className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+                  </div>
+                  <span className="text-slate-500 font-semibold">({reviewsSummary.totalReviews} verified ratings)</span>
+                </>
+              ) : (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 border border-slate-200 font-medium">
+                  <span>No reviews yet</span>
+                </div>
+              )}
               <span className="text-slate-300">•</span>
-              <span className="text-emerald-600 font-bold">100% Authentic Indian Stock</span>
+              <span className="text-emerald-600 font-bold">Authentic Indian Stock</span>
             </div>
 
             {/* Price display */}
-            <div className="p-4 rounded-2xl bg-[#F7F7F9] border border-slate-200/80 flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl font-black text-[#222222]">
-                ₹{Number(details.sellingPrice).toLocaleString('en-IN')}
-              </span>
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F7F9] border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col">
+                {hasDiscount && (
+                  <span className="text-sm sm:text-base text-slate-400 line-through font-medium leading-none mb-1">
+                    ₹{Number(details.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+                <span className="text-3xl sm:text-4xl font-black text-[#222222] leading-tight">
+                  ₹{Number(details.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
               {hasDiscount && (
-                <>
-                  <span className="text-base text-slate-400 line-through">
-                    ₹{Number(details.price).toLocaleString('en-IN')}
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-lg bg-[#F7941D] text-white text-xs font-black uppercase tracking-wider shadow-xs">
+                    {discountPct}% OFF
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#F7941D] text-white text-xs font-black uppercase tracking-wider">
-                    Save {discountPct}%
+                  <span className="text-xs font-bold text-emerald-700">
+                    Save ₹{(details.mrp - details.sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
-                </>
+                </div>
               )}
             </div>
 
@@ -709,6 +745,34 @@ export const ProductDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Related and Recommended Products Section */}
+      {relatedProducts && relatedProducts.length > 0 && (
+        <div className="pt-6 border-t border-slate-200/80 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-black text-[#222222] tracking-tight">
+                Related & Recommended Products
+              </h3>
+              <p className="text-xs text-slate-500">
+                Explore more authentic products from verified Indian vendors
+              </p>
+            </div>
+            <Link
+              to={`/products?category=${product.categoryId?.slug || product.category || ''}`}
+              className="text-xs font-bold text-[#ED1C2E] hover:underline"
+            >
+              View More in Category →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {relatedProducts.map((relProd) => (
+              <ProductCard key={relProd._id} product={relProd} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

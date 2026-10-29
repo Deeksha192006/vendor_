@@ -358,6 +358,7 @@ import {
   getAdminCommissionOverview,
   getAdminCommissionTransactions,
   getAdminVendorCommissionsSummary,
+  getAdminProductCommissionsSummary,
   getAdminSettlements,
   approveAdminSettlement,
   processAdminSettlementPayout,
@@ -366,12 +367,26 @@ import {
 
 router.get('/commissions/overview', getAdminCommissionOverview);
 router.get('/commissions/vendors', getAdminVendorCommissionsSummary);
+router.get('/commissions/products', getAdminProductCommissionsSummary);
 router.get('/commissions/export', exportAdminCommissionsCsv);
 router.get('/commissions', getAdminCommissionTransactions);
 router.get('/platform-settlements', getAdminSettlements);
 router.post('/platform-settlements/:id/approve', approveAdminSettlement);
 router.post('/platform-settlements/:id/payout', processAdminSettlementPayout);
 router.post('/settlements/:id/payout', processAdminSettlementPayout);
+
+// Additional 3% Direct Vendor Referral Commission Management
+import {
+  getAdminReferralOverview,
+  getAdminReferralTransactions,
+  payoutAdminReferralCommission,
+  exportAdminReferralCommissionsCsv,
+} from '../controllers/vendorReferralCommissionController.js';
+
+router.get('/referral-commissions/overview', getAdminReferralOverview);
+router.get('/referral-commissions/transactions', getAdminReferralTransactions);
+router.post('/referral-commissions/:id/payout', payoutAdminReferralCommission);
+router.get('/referral-commissions/export', exportAdminReferralCommissionsCsv);
 
 // Category Management
 import {

@@ -504,59 +504,176 @@ export const SuperAdminSpinWheel = () => {
             <p className="text-xs text-slate-500 max-w-xs mx-auto">{description}</p>
 
             {/* SVG 5-Segment Wheel Render */}
-            <div className="relative w-72 h-72 mx-auto flex items-center justify-center py-4">
+            <div className="relative w-80 h-80 sm:w-96 sm:h-96 mx-auto flex items-center justify-center py-4">
               {/* Pointer Teardrop Pin / Triangle */}
-              <div className="absolute -top-1 z-30 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[22px] border-t-amber-500 filter drop-shadow-md" />
-
-              <div className="w-full h-full rounded-full shadow-xl relative overflow-hidden bg-white">
-                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                  {rewards.map((reward, i) => {
-                    const count = rewards.length; // 5 segments = 72 deg each
-                    const angle = 360 / count;
-                    const startAngle = i * angle;
-                    const endAngle = (i + 1) * angle;
-
-                    const x1 = 50 + 50 * Math.cos((Math.PI * startAngle) / 180);
-                    const y1 = 50 + 50 * Math.sin((Math.PI * startAngle) / 180);
-                    const x2 = 50 + 50 * Math.cos((Math.PI * endAngle) / 180);
-                    const y2 = 50 + 50 * Math.sin((Math.PI * endAngle) / 180);
-
-                    const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 0 1 ${x2} ${y2} Z`;
-
-                    return (
-                      <path
-                        key={i}
-                        d={pathData}
-                        fill={reward.color || (i % 2 === 0 ? '#eab308' : '#15803d')}
-                        stroke="#ffffff"
-                        strokeWidth="0.8"
-                      />
-                    );
-                  })}
+              <div className="absolute -top-2 z-30 filter drop-shadow-[0_4px_8px_rgba(245,158,11,0.6)] pointer-events-none">
+                <svg width="36" height="42" viewBox="0 0 46 54" fill="none">
+                  <path
+                    d="M 23 52 L 6 14 A 17 17 0 0 1 40 14 Z"
+                    fill="#f59e0b"
+                    stroke="#b45309"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="23" cy="18" r="8" fill="#dc2626" stroke="#ffffff" strokeWidth="2" />
+                  <circle cx="21" cy="15.5" r="2.5" fill="#ffffff" opacity="0.85" />
                 </svg>
+              </div>
 
-                {/* Labels Overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-full h-full rounded-full shadow-2xl relative overflow-hidden bg-white border-4 border-white">
+                <svg viewBox="0 0 500 500" className="w-full h-full select-none">
+                  <defs>
+                    <filter id="adminWheelTextShadow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.8" />
+                    </filter>
+                    {rewards.map((_, i) => {
+                      const count = rewards.length || 5;
+                      const segAngle = 360 / count;
+                      const startA = i * segAngle;
+                      const endA = (i + 1) * segAngle;
+                      const R = 250;
+                      const sx1 = 250 + R * Math.sin((startA * Math.PI) / 180);
+                      const sy1 = 250 - R * Math.cos((startA * Math.PI) / 180);
+                      const sx2 = 250 + R * Math.sin((endA * Math.PI) / 180);
+                      const sy2 = 250 - R * Math.cos((endA * Math.PI) / 180);
+                      const d = `M 250 250 L ${sx1.toFixed(2)} ${sy1.toFixed(2)} A ${R} ${R} 0 0 1 ${sx2.toFixed(2)} ${sy2.toFixed(2)} Z`;
+                      return (
+                        <clipPath id={`admin-slice-clip-${i}`} key={`admin-clip-${i}`}>
+                          <path d={d} />
+                        </clipPath>
+                      );
+                    })}
+                  </defs>
+
                   {rewards.map((reward, i) => {
-                    const angle = (360 / rewards.length) * i + (360 / rewards.length) / 2;
+                    const count = rewards.length || 5;
+                    const segAngle = 360 / count;
+                    const startA = i * segAngle;
+                    const endA = (i + 1) * segAngle;
+                    const midA = (i + 0.5) * segAngle;
+                    const R = 250;
+
+                    const sx1 = 250 + R * Math.sin((startA * Math.PI) / 180);
+                    const sy1 = 250 - R * Math.cos((startA * Math.PI) / 180);
+                    const sx2 = 250 + R * Math.sin((endA * Math.PI) / 180);
+                    const sy2 = 250 - R * Math.cos((endA * Math.PI) / 180);
+                    const slicePath = `M 250 250 L ${sx1.toFixed(2)} ${sy1.toFixed(2)} A ${R} ${R} 0 0 1 ${sx2.toFixed(2)} ${sy2.toFixed(2)} Z`;
+
+                    const PALETTE = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1'];
+                    const sliceColor = reward.color || PALETTE[i % PALETTE.length];
+
+                    const isProduct = reward.type === 'PRODUCT';
+                    const rawTitle = (reward.title || reward.productTitle || '').trim();
+                    const upperTitle = rawTitle.toUpperCase();
+
+                    let line1 = '';
+                    let line2 = '';
+                    let iconType = 'coin';
+
+                    if (isProduct) {
+                      line1 = 'FREE';
+                      line2 = rawTitle.length > 12 ? rawTitle.slice(0, 11) + '…' : rawTitle;
+                      iconType = 'product';
+                    } else if (upperTitle.includes('TRY') || upperTitle.includes('AGAIN')) {
+                      line1 = 'TRY';
+                      line2 = 'AGAIN';
+                      iconType = 'retry';
+                    } else {
+                      const numMatch = rawTitle.match(/\d+/);
+                      const val = reward.value || (numMatch ? numMatch[0] : '');
+                      if (val) {
+                        line1 = `${val}`;
+                        line2 = 'FAIR COINS';
+                        iconType = 'coin';
+                      } else {
+                        const parts = rawTitle.split(' ');
+                        line1 = parts[0] || 'REWARD';
+                        line2 = parts.slice(1).join(' ') || '';
+                        iconType = 'coin';
+                      }
+                    }
+
                     return (
-                      <div
-                        key={i}
-                        className="absolute w-full text-center text-[9px] font-black text-white uppercase tracking-wider drop-shadow-md px-1 truncate"
-                        style={{
-                          transform: `rotate(${angle}deg) translate(80px) rotate(90deg)`,
-                        }}
-                      >
-                        {reward.title || reward.productTitle}
-                      </div>
+                      <g key={i}>
+                        <path
+                          d={slicePath}
+                          fill={sliceColor}
+                          stroke="#ffffff"
+                          strokeWidth="3.5"
+                          strokeLinejoin="round"
+                        />
+                        <g clipPath={`url(#admin-slice-clip-${i})`}>
+                          <g transform={`rotate(${midA} 250 250)`}>
+                            {iconType === 'product' && (
+                              <g transform="translate(250, 56)">
+                                <rect x="-11" y="-9" width="22" height="18" rx="2.5" fill="#34d399" stroke="#065f46" strokeWidth="1.5" />
+                                <rect x="-13" y="-12" width="26" height="5.5" rx="1.5" fill="#6ee7b7" stroke="#065f46" strokeWidth="1" />
+                                <line x1="0" y1="-12" x2="0" y2="9" stroke="#ffffff" strokeWidth="2.5" />
+                                <line x1="-11" y1="0" x2="11" y2="0" stroke="#ffffff" strokeWidth="2.5" />
+                              </g>
+                            )}
+
+                            {iconType === 'retry' && (
+                              <g transform="translate(250, 56)">
+                                <circle cx="0" cy="0" r="12" fill="rgba(255,255,255,0.25)" stroke="#ffffff" strokeWidth="1" />
+                                <path d="M 0 -8 L 2.5 -2.5 L 8 0 L 2.5 2.5 L 0 8 L -2.5 2.5 L -8 0 L -2.5 -2.5 Z" fill="#ffffff" />
+                              </g>
+                            )}
+
+                            {iconType === 'coin' && (
+                              <g transform="translate(250, 56)">
+                                <circle cx="0" cy="0" r="13" fill="#fef08a" stroke="#b45309" strokeWidth="2" />
+                                <circle cx="0" cy="0" r="10" fill="#f59e0b" />
+                                <text x="0" y="3.5" textAnchor="middle" fill="#78350f" fontSize="9.5" fontWeight="900">FC</text>
+                              </g>
+                            )}
+
+                            <text
+                              x="250"
+                              y="92"
+                              textAnchor="middle"
+                              fill="#ffffff"
+                              fontSize={line1.length > 5 ? '17' : '22'}
+                              fontWeight="900"
+                              letterSpacing="0.5"
+                              filter="url(#adminWheelTextShadow)"
+                              className="select-none pointer-events-none"
+                            >
+                              {line1}
+                            </text>
+
+                            {line2 && (
+                              <text
+                                x="250"
+                                y="112"
+                                textAnchor="middle"
+                                fill="rgba(255, 255, 255, 0.95)"
+                                fontSize={line2.length > 10 ? '9.5' : '11'}
+                                fontWeight="800"
+                                letterSpacing="0.8"
+                                filter="url(#adminWheelTextShadow)"
+                                className="select-none pointer-events-none uppercase"
+                              >
+                                {line2}
+                              </text>
+                            )}
+                          </g>
+                        </g>
+                      </g>
                     );
                   })}
-                </div>
+
+                  {/* Clean Outer Wheel Rim Border (No Black Ring) */}
+                  <circle cx="250" cy="250" r="248" fill="none" stroke="#ffffff" strokeWidth="3" />
+                </svg>
               </div>
 
               {/* Center Teardrop / Spin Pin */}
-              <div className="absolute z-20 w-16 h-16 rounded-full bg-slate-950 text-white font-black text-xs shadow-2xl flex flex-col items-center justify-center border-4 border-amber-400">
-                <div className="text-[10px] font-black tracking-wider text-amber-400">SPIN</div>
+              <div
+                style={{ backgroundColor: '#0f172a' }}
+                className="absolute z-20 w-20 h-20 rounded-full text-white font-black text-xs shadow-xl flex flex-col items-center justify-center border-4 border-amber-400"
+              >
+                <div className="text-xs font-black tracking-wider text-amber-400">SPIN</div>
               </div>
             </div>
 

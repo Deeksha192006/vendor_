@@ -42,8 +42,15 @@ router.route('/me/addresses')
   .get(userController.getAddresses)
   .post(userController.createAddress);
 
+import { dataDeletionController } from '../controllers/dataDeletionController.js';
+
 router.route('/me/addresses/:id')
   .put(userController.updateAddress)
   .delete(userController.deleteAddress);
+
+// Data deletion requests (privacy & right to be forgotten)
+router.route('/me/data-deletion-request')
+  .get(dataDeletionController.getMyRequest)
+  .post(dataDeletionController.submitRequest);
 
 export default router;

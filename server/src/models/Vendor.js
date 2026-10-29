@@ -62,6 +62,129 @@ const vendorSchema = new mongoose.Schema(
     totalSales: { type: Number, default: 0 },
     balance: { type: Number, default: 0 }, // Available for withdrawal
     pendingBalance: { type: Number, default: 0 },
+    // Direct Vendor Referrer (Earns 3% on eligible sales made by this vendor)
+    referredByVendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vendor',
+      default: null,
+      index: true,
+    },
+    referredByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+    // Franchise Vendor fields
+    vendorType: {
+      type: String,
+      enum: ['NORMAL', 'FRANCHISE_VENDOR'],
+      default: 'NORMAL',
+      index: true,
+    },
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
+    whatsappNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    franchiseCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
+      index: true,
+    },
+    appointedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
+    appointedAt: {
+      type: Date,
+      default: null,
+    },
+    appointmentNotes: {
+      type: String,
+      default: '',
+    },
+    territory: {
+      state: { type: String, default: '', trim: true },
+      district: { type: String, default: '', trim: true },
+      taluk: { type: String, default: '', trim: true },
+      fullAddress: { type: String, default: '', trim: true },
+    },
+    invitationTokenHash: {
+      type: String,
+      select: false,
+      default: null,
+    },
+    invitationTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+    invitationStatus: {
+      type: String,
+      enum: ['PENDING', 'SENT', 'ACCEPTED', 'EXPIRED', 'REVOKED'],
+      default: 'PENDING',
+      index: true,
+    },
+    invitationSentAt: {
+      type: Date,
+      default: null,
+    },
+    invitationManuallyMarkedSentAt: {
+      type: Date,
+      default: null,
+    },
+    activatedAt: {
+      type: Date,
+      default: null,
+    },
+    activationStatus: {
+      type: String,
+      enum: ['PENDING_ACTIVATION', 'ACTIVE', 'SUSPENDED'],
+      default: 'ACTIVE',
+      index: true,
+    },
+    applicationStatus: {
+      type: String,
+      enum: ['PENDING_APPLICATION', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'MORE_INFO_REQUIRED'],
+      default: 'PENDING_APPLICATION',
+      index: true,
+    },
+    applicationSubmittedAt: {
+      type: Date,
+      default: null,
+    },
+    applicationReviewedAt: {
+      type: Date,
+      default: null,
+    },
+    applicationReviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    applicationReviewNotes: {
+      type: String,
+      default: '',
+    },
+    applicationRejectionReason: {
+      type: String,
+      default: '',
+    },
+    applicationMoreInfoReason: {
+      type: String,
+      default: '',
+    },
   },
   { timestamps: true }
 );

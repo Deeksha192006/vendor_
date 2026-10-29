@@ -50,6 +50,8 @@ export default function VendorProductForm() {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [categoryModalError, setCategoryModalError] = useState('');
   const [categorySuccessMessage, setCategorySuccessMessage] = useState('');
+  const [imageError, setImageError] = useState('');
+  const [replacingImageIndex, setReplacingImageIndex] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -212,28 +214,60 @@ export default function VendorProductForm() {
     setFormData((prev) => ({ ...prev, sku: `${prefix}-${rand}-${time}` }));
   };
 
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
   const addImageUrl = () => {
-    if (formData.imageUrlInput.trim()) {
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, prev.imageUrlInput.trim()],
-        imageUrlInput: ''
-      }));
+    setImageError('');
+    const url = formData.imageUrlInput.trim();
+    if (!url) return;
+
+    if (formData.images.length >= 5) {
+      setImageError('You have already selected the maximum of 5 images. Remove an image to add another.');
+      return;
     }
+
+    // Basic URL validation
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      setImageError('Please enter a valid HTTP/HTTPS image URL.');
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, url],
+      imageUrlInput: ''
+    }));
   };
 
   const removeImageUrl = (index) => {
+    setImageError('');
     setFormData((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
 
-  const compressImage = (file, maxWidth = 1000, maxHeight = 1000, quality = 0.8) => {
-    return new Promise((resolve) => {
+  const setAsPrimaryImage = (index) => {
+    setImageError('');
+    if (index === 0 || index >= formData.images.length) return;
+    setFormData((prev) => {
+      const copy = [...prev.images];
+      const selected = copy.splice(index, 1)[0];
+      return {
+        ...prev,
+        images: [selected, ...copy]
+      };
+    });
+  };
+
+  const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.85) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read image file.'));
       reader.onload = (e) => {
         const img = new Image();
+        img.onerror = () => reject(new Error('Invalid image file content.'));
         img.onload = () => {
           let width = img.width;
           let height = img.height;
@@ -254,7 +288,9 @@ export default function VendorProductForm() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          // Preserve WebP/PNG or fallback to JPEG
+          const mime = file.type === 'image/webp' ? 'image/webp' : (file.type === 'image/png' ? 'image/png' : 'image/jpeg');
+          const compressedDataUrl = canvas.toDataURL(mime, quality);
           resolve(compressedDataUrl);
         };
         img.src = e.target.result;
@@ -264,20 +300,85 @@ export default function VendorProductForm() {
   };
 
   const handleImageFileUpload = async (e) => {
+    setImageError('');
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    for (const file of files) {
-      if (!file.type.startsWith('image/')) continue;
+    const currentCount = formData.images.length;
+    if (currentCount >= 5) {
+      setImageError('You have already reached the maximum of 5 images. Remove an image to upload a new one.');
+      e.target.value = '';
+      return;
+    }
+
+    const remainingSlots = 5 - currentCount;
+    const filesToProcess = files.slice(0, remainingSlots);
+
+    if (files.length > remainingSlots) {
+      setImageError(`Only ${remainingSlots} more image${remainingSlots > 1 ? 's' : ''} can be added (Maximum 5 images per product).`);
+    }
+
+    const processedImages = [];
+    for (const file of filesToProcess) {
+      // Validate file type (JPEG, PNG, WebP)
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+        setImageError(`"${file.name}" is not a supported format. Please upload JPEG, PNG, or WebP images only.`);
+        continue;
+      }
+
+      // Validate file size limit (5MB)
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setImageError(`"${file.name}" exceeds the 5MB upload size limit (${(file.size / (1024 * 1024)).toFixed(1)}MB). Please choose a smaller file.`);
+        continue;
+      }
+
       try {
         const compressedBase64 = await compressImage(file);
-        setFormData((prev) => ({
-          ...prev,
-          images: [...prev.images, compressedBase64],
-        }));
+        processedImages.push(compressedBase64);
       } catch (err) {
         console.error('Failed to process image file:', err);
+        setImageError(`Failed to process "${file.name}". Please ensure it is a valid image.`);
       }
+    }
+
+    if (processedImages.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        images: [...prev.images, ...processedImages].slice(0, 5),
+      }));
+    }
+
+    e.target.value = '';
+  };
+
+  const handleReplaceImageFile = async (e, index) => {
+    setImageError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+      setImageError(`"${file.name}" is not a supported format. Please upload JPEG, PNG, or WebP images only.`);
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageError(`"${file.name}" exceeds the 5MB size limit. Please choose a smaller file.`);
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const compressedBase64 = await compressImage(file);
+      setFormData((prev) => {
+        const copy = [...prev.images];
+        copy[index] = compressedBase64;
+        return { ...prev, images: copy };
+      });
+      setReplacingImageIndex(null);
+    } catch (err) {
+      console.error('Failed to replace image:', err);
+      setImageError('Failed to process replacement image.');
     }
 
     e.target.value = '';
@@ -593,12 +694,12 @@ export default function VendorProductForm() {
                   >
                     <option value="">Select a category</option>
                     <option value="__ADD_NEW__" className="text-[#ED1C2E] font-bold">
-                      ➕ + Add New Category...
+                      + Add New Category...
                     </option>
                     <optgroup label="Shared Global Categories">
                       {filteredCategories.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.name} {c.createdByRole === 'VENDOR' ? '— (Vendor Added)' : ''}
+                          {c.name} {c.createdByRole === 'VENDOR' ? '(Vendor Added)' : ''}
                         </option>
                       ))}
                     </optgroup>
@@ -646,78 +747,214 @@ export default function VendorProductForm() {
                 />
               </div>
 
-              {/* Product Images (Browse & Upload or URL) */}
-              <div className="sm:col-span-2 pt-2 space-y-3">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Product Images (Browse & Upload)
-                </label>
-
-                {/* File Upload Drop Zone */}
-                <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-6 text-center transition-colors bg-slate-50/50 relative group">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageFileUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                  <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                      <UploadCloud className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <span className="font-bold text-slate-900 text-sm block">Click to Browse Images from Computer</span>
-                      <span className="text-slate-500 text-xs block mt-0.5">Supports PNG, JPG, WEBP formats</span>
-                    </div>
+              {/* Product Images (Upload Up to Five Images) */}
+              <div className="sm:col-span-2 pt-2 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-slate-100">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Product Images (Upload Up to 5 Images) <span className="text-rose-500">*</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Supported formats: JPEG, PNG, WebP • Max 5MB per image • First image is used as primary product card cover
+                    </p>
                   </div>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold self-start sm:self-auto ${
+                      formData.images.length === 5
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : formData.images.length > 0
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    {formData.images.length}/5 images selected
+                  </span>
                 </div>
 
+                {/* Validation Error Banner */}
+                {imageError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{imageError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImageError('')}
+                      className="text-rose-500 hover:text-rose-800 font-bold px-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                {/* File Upload Drop Zone (Disabled if 5 images reached) */}
+                {formData.images.length < 5 ? (
+                  <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center transition-all bg-slate-50/70 hover:bg-blue-50/20 relative group cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      multiple
+                      onChange={handleImageFileUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      title="Upload up to 5 product images"
+                    />
+                    <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                        <UploadCloud className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 text-sm block">
+                          Click or Drag to Browse Product Images
+                        </span>
+                        <span className="text-slate-500 text-xs block mt-0.5">
+                          {5 - formData.images.length} more slot{5 - formData.images.length > 1 ? 's' : ''} available • JPEG, PNG, or WebP (max 5MB)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold text-left">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Maximum 5 images selected (5/5). All image slots are filled.</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
+                      Limit reached
+                    </span>
+                  </div>
+                )}
+
                 {/* Optional Image URL Input */}
-                <div className="pt-2">
+                <div className="pt-1">
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Or paste Image URL
+                    Or paste online image URL ({formData.images.length}/5)
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       type="url"
                       value={formData.imageUrlInput}
                       onChange={(e) => setFormData({ ...formData, imageUrlInput: e.target.value })}
-                      placeholder="https://example.com/images/product.jpg"
-                      className="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-800 placeholder-slate-400"
+                      placeholder={
+                        formData.images.length >= 5
+                          ? 'Maximum 5 images reached'
+                          : 'https://example.com/images/product-image.jpg'
+                      }
+                      disabled={formData.images.length >= 5}
+                      className="w-full px-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-800 placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <button
                       type="button"
                       onClick={addImageUrl}
-                      className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors whitespace-nowrap"
+                      disabled={formData.images.length >= 5 || !formData.imageUrlInput.trim()}
+                      className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Add URL
                     </button>
                   </div>
                 </div>
 
-                {/* Uploaded Images Gallery Preview */}
-                {formData.images.length > 0 && (
-                  <div className="pt-2">
-                    <div className="text-xs font-bold text-slate-600 mb-2">
-                      Uploaded Images ({formData.images.length})
-                    </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-                      {formData.images.map((img, idx) => (
-                        <div key={idx} className="relative group aspect-square rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shadow-xs">
-                          <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                {/* Uploaded Images Gallery Preview & Management */}
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      Product Image Previews ({formData.images.length}/5)
+                    </span>
+                    {formData.images.length > 0 && (
+                      <span className="text-[11px] text-slate-500">
+                        First image is customer cover image. You can reorder or replace any slot.
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {/* Rendered Uploaded Images */}
+                    {formData.images.map((img, idx) => (
+                      <div
+                        key={idx}
+                        className={`relative group aspect-square rounded-2xl border overflow-hidden bg-slate-100 shadow-xs flex flex-col justify-between transition-all ${
+                          idx === 0
+                            ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`Product Image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src =
+                              'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300';
+                          }}
+                        />
+
+                        {/* Top Badges & Remove Button */}
+                        <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
+                          {idx === 0 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                              Primary Cover
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded-md bg-slate-900/70 backdrop-blur-xs text-white text-[10px] font-bold">
+                              #{idx + 1}
+                            </span>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => removeImageUrl(idx)}
-                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-bold opacity-90 hover:opacity-100 transition-opacity shadow-md cursor-pointer"
-                            title="Remove image"
+                            className="w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center text-xs font-bold shadow-md cursor-pointer transition-colors"
+                            title="Remove this image"
                           >
                             ×
                           </button>
                         </div>
-                      ))}
-                    </div>
+
+                        {/* Bottom Actions Overlay: Replace & Set as Cover */}
+                        <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-slate-950/80 via-slate-900/50 to-transparent flex items-center justify-between gap-1 opacity-95 group-hover:opacity-100 transition-opacity">
+                          {/* Replace File Button */}
+                          <label
+                            className="px-2 py-1 rounded-lg bg-white/90 hover:bg-white text-slate-800 text-[10px] font-bold cursor-pointer transition-all shadow-xs flex items-center gap-1"
+                            title="Replace this image with a new file"
+                          >
+                            <span>Replace</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/jpg"
+                              onChange={(e) => handleReplaceImageFile(e, idx)}
+                              className="hidden"
+                            />
+                          </label>
+
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setAsPrimaryImage(idx)}
+                              className="px-2 py-1 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-[10px] font-bold transition-all shadow-xs"
+                              title="Make this the primary cover image"
+                            >
+                              Set Cover
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Empty Slot Placeholders (showing up to 5 total) */}
+                    {Array.from({ length: 5 - formData.images.length }).map((_, slotIdx) => (
+                      <div
+                        key={`empty-${slotIdx}`}
+                        className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center p-3 text-center text-slate-400"
+                      >
+                        <ImageIcon className="w-6 h-6 mb-1 text-slate-300" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Slot {formData.images.length + slotIdx + 1}
+                        </span>
+                        <span className="text-[9px] text-slate-400">Empty</span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

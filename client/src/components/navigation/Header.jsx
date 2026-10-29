@@ -17,7 +17,9 @@ import {
   Crown,
   HelpCircle,
   Truck,
-  Phone
+  Phone,
+  Flag,
+  Flame
 } from 'lucide-react';
 import { logoutUser } from '../../store/authSlice';
 import BrandLogo from '../BrandLogo';
@@ -398,16 +400,18 @@ export const Header = () => {
 
             <Link
               to="/products?origin=India"
-              className="px-3 py-1.5 rounded-lg bg-orange-50 text-[#F7941D] hover:bg-orange-100 border border-orange-200/60 transition flex items-center gap-1 font-extrabold"
+              className="px-3 py-1.5 rounded-lg bg-orange-50 text-[#F7941D] hover:bg-orange-100 border border-orange-200/60 transition flex items-center gap-1.5 font-extrabold"
             >
-              <span>🇮🇳 Made in India</span>
+              <Flag className="w-3.5 h-3.5" />
+              <span>Made in India</span>
             </Link>
 
             <Link
               to="/products?filter=deals"
-              className="px-3 py-1.5 rounded-lg bg-red-50 text-[#ED1C2E] hover:bg-red-100 border border-red-200/60 transition font-extrabold"
+              className="px-3 py-1.5 rounded-lg bg-red-50 text-[#ED1C2E] hover:bg-red-100 border border-red-200/60 transition flex items-center gap-1.5 font-extrabold"
             >
-              Daily Deals 🔥
+              <Flame className="w-3.5 h-3.5" />
+              <span>Daily Deals</span>
             </Link>
           </nav>
         </div>

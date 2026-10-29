@@ -36,6 +36,10 @@ export const authenticate = async (req, res, next) => {
       throw new ApiError(403, 'Account has been suspended', ERROR_CODES.USER_SUSPENDED);
     }
 
+    if (user.status === USER_STATUS.DELETED) {
+      throw new ApiError(403, 'Account has been closed and deleted per data deletion request', ERROR_CODES.FORBIDDEN);
+    }
+
     req.user = user;
     next();
   } catch (error) {

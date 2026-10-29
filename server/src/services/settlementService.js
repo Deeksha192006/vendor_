@@ -6,11 +6,20 @@ import { AuditLog } from '../models/AuditLog.js';
 
 export const settlementService = {
   async processEligibleSettlements(adminUserId, adminIp) {
-    // 1. Find all ELIGIBLE settlements whose hold period has expired
+    // 1. Find all ELIGIBLE settlements whose 7-day hold period has expired
     const now = new Date();
-    const eligibleSettlements = await VendorSettlement.find({
+    const candidateSettlements = await VendorSettlement.find({
       status: 'ELIGIBLE',
       eligibleAt: { $lte: now }
+    }).populate('suborderId');
+
+    // Filter out settlements affected by cancellation, refund, or hold
+    const eligibleSettlements = candidateSettlements.filter(st => {
+      const suborder = st.suborderId;
+      if (suborder && ['CANCELLED', 'RETURNED', 'REFUNDED'].includes(suborder.status)) {
+        return false;
+      }
+      return true;
     });
 
     if (eligibleSettlements.length === 0) {

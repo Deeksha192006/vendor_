@@ -80,6 +80,14 @@ export const adminService = {
   },
 
   async updateSettings(key, value, category, adminUser, ip) {
+    if (key === 'FAIR_COINS_PER_RUPEE' && Number(value) !== 10) {
+      throw new ApiError(
+        400,
+        'Fair Coin conversion rate is permanently fixed at 10 Fair Coins = ₹1 and cannot be modified.',
+        ERROR_CODES.BAD_REQUEST
+      );
+    }
+
     const errorMsg = validateSetting(key, value);
     if (errorMsg) {
       throw new ApiError(400, errorMsg, ERROR_CODES.BAD_REQUEST);

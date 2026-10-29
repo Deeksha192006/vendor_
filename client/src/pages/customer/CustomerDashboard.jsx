@@ -69,7 +69,7 @@ export const CustomerDashboard = () => {
               <span>BUY INDIAN • BUILD INDIA</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-              Welcome back, {user?.name || 'Customer'}! 👋
+              Welcome back, {user?.name || 'Customer'}!
             </h1>
             <p className="text-white/80 text-xs md:text-sm mt-1 max-w-xl">
               Earn reward coins on every purchase, spin the wheel daily, and support verified Indian manufacturers.

@@ -33,8 +33,22 @@ const vendorOrderSchema = new mongoose.Schema(
     discountTotal: { type: Number, default: 0 },
     shippingTotal: { type: Number, default: 0 },
     grandTotal: { type: Number, required: true },
-    platformCommission: { type: Number, required: true }, // Platform fee (e.g. 10%)
-    vendorEarning: { type: Number, required: true }, // Net payout to vendor
+    platformCommission: { type: Number, required: true }, // Platform fee (5%)
+    vendorEarning: { type: Number, required: true }, // Net payout to vendor (95% or 92%)
+    commissionRate: { type: Number, default: 5 },
+    // Direct Vendor Referrer 3% Commission
+    referrerVendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', default: null, index: true },
+    referralCommissionRate: { type: Number, default: 0 },
+    referralCommission: { type: Number, default: 0 },
+    referralSettlementStatus: {
+      type: String,
+      enum: ['NONE', 'PENDING_DELIVERY', 'ELIGIBLE', 'PROCESSING', 'PAID', 'CANCELLED', 'REVERSED'],
+      default: 'NONE',
+      index: true,
+    },
+    referralSettlementPaidAt: { type: Date, default: null },
+    referralPayoutReference: { type: String, default: '' },
+    eligibleItemCount: { type: Number, default: 1 },
     status: {
       type: String,
       enum: [

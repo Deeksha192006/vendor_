@@ -89,6 +89,8 @@ export const customerNavGroups = [
     group: 'SUPPORT',
     items: [
       { name: 'Help Center', path: '/customer/help', icon: HelpCircle },
+      { name: 'Terms & Conditions', path: '/terms/customer', icon: ShieldCheck },
+      { name: 'Privacy Policy', path: '/privacy-policy', icon: Shield },
       { name: 'Contact Support', path: '/customer/help?tab=contact', icon: Headphones },
     ],
   },
@@ -185,6 +187,8 @@ export const vendorNavGroups = [
   {
     group: 'SYSTEM',
     items: [
+      { name: 'Vendor Terms', path: '/terms/vendor', icon: ShieldCheck },
+      { name: 'Privacy Policy', path: '/privacy-policy', icon: Shield },
       { name: 'Settings', path: '/vendor/profile?tab=settings', icon: Settings },
       { name: 'Help', path: '/vendor/dashboard?tab=help', icon: HelpCircle },
     ],
@@ -223,6 +227,8 @@ export const superAdminNavGroups = [
   {
     group: 'USER & VENDOR MANAGEMENT',
     items: [
+      { name: 'Franchise Vendor Management', path: '/super-admin/franchise-vendors', icon: Building2, highlight: true },
+      { name: 'Franchise Vendor Applications & KYC', path: '/super-admin/franchise-applications', icon: ShieldCheck, highlight: true },
       { name: 'Users & Customers', path: '/super-admin/users', icon: Users },
       { name: 'Vendors & Reviews', path: '/super-admin/vendors', icon: Store },
     ],
@@ -253,7 +259,7 @@ export const superAdminNavGroups = [
   {
     group: 'REFERRAL NETWORK',
     items: [
-      { name: 'MLM & Referral Management', path: '/super-admin/referral-network', icon: Network, highlight: true },
+      { name: 'Referral Management', path: '/super-admin/referral-network', icon: Network, highlight: true },
     ],
   },
   {
@@ -262,6 +268,8 @@ export const superAdminNavGroups = [
       { name: 'Offline Bills Verification', path: '/super-admin/offline-bills', icon: Receipt },
       { name: 'Spin Wheel Manager', path: '/super-admin/spin-wheel', icon: Dices },
       { name: 'Platform Settings', path: '/super-admin/settings', icon: Sliders },
+      { name: 'Legal Documents & Terms', path: '/super-admin/legal-documents', icon: ShieldCheck, highlight: true },
+      { name: 'Data Deletion Requests', path: '/super-admin/data-deletions', icon: ShieldAlert, highlight: true },
     ],
   },
   {

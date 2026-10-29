@@ -174,6 +174,47 @@ export const superAdminService = {
     return res.data?.data;
   },
 
+  // Dynamic Banner Management
+  getBanners: async (params = {}) => {
+    const res = await api.get('/banners', { params });
+    return res.data?.data;
+  },
+
+  getActiveBanners: async () => {
+    const res = await api.get('/banners/active');
+    return res.data?.data;
+  },
+
+  createBanner: async (data) => {
+    const res = await api.post('/banners', data);
+    return res.data?.data;
+  },
+
+  updateBanner: async (id, data) => {
+    const res = await api.put(`/banners/${id}`, data);
+    return res.data?.data;
+  },
+
+  updateBannerStatus: async (id, isActive) => {
+    const res = await api.patch(`/banners/${id}/status`, { isActive });
+    return res.data?.data;
+  },
+
+  updateBannerDisplayOrder: async (id, displayOrder) => {
+    const res = await api.patch(`/banners/${id}/display-order`, { displayOrder });
+    return res.data?.data;
+  },
+
+  deleteBanner: async (id) => {
+    const res = await api.delete(`/banners/${id}`);
+    return res.data?.data;
+  },
+
+  uploadBannerImage: async (imageData, filename) => {
+    const res = await api.post('/banners/upload', { imageData, filename });
+    return res.data?.data;
+  },
+
   // Roles Matrix
   getRolesMatrix: async () => {
     const res = await api.get('/super-admin/roles');

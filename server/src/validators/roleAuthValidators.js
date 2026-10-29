@@ -39,6 +39,10 @@ export const customerRegistrationSchema = z
     state: z.string().trim().optional(),
     country: z.string().trim().default('India').optional(),
     pincode: z.string().trim().optional(),
+    termsAccepted: z.literal(true, {
+      errorMap: () => ({ message: 'You must read and agree to the Terms & Conditions and Privacy Policy to register.' }),
+    }),
+    termsVersion: z.string().optional(),
     // Reject unknown privilege flags
     role: z.any().optional(),
     isAdmin: z.any().optional(),
@@ -114,7 +118,10 @@ export const vendorRegistrationSchema = z
     bankProofUpload: z.string().optional().nullable().or(z.literal('')),
     // Referral
     referralCode: z.string().trim().optional().nullable().or(z.literal('')),
-    termsAccepted: z.boolean().optional(),
+    termsAccepted: z.literal(true, {
+      errorMap: () => ({ message: 'You must read and agree to the Vendor Terms & Conditions and Privacy Policy.' }),
+    }),
+    termsVersion: z.string().optional(),
     // Reject unknown privilege flags
     role: z.any().optional(),
     isAdmin: z.any().optional(),

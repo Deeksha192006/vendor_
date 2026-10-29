@@ -1,12 +1,35 @@
 import { CoinTransaction } from '../models/CoinTransaction.js';
 import { User } from '../models/User.js';
+import { Settings } from '../models/Settings.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ERROR_CODES } from '../constants/responseCodes.js';
 import { notificationService } from './notificationService.js';
 
+import { FAIR_COIN_CONVERSION } from '../constants/coinConstants.js';
+
 export const fairCoinService = {
   /**
+   * Retrieves the current maximum Fair Coins a customer can redeem per purchase.
+   * Fetches persistently from the Settings collection, defaulting safely to 100 if unset.
+   */
+  async getMaxCoinsPerPurchase() {
+    try {
+      const setting = await Settings.findOne({ key: 'MAX_FAIR_COINS_PER_PURCHASE' });
+      if (setting && setting.value !== undefined && setting.value !== null) {
+        const val = Number(setting.value);
+        if (!isNaN(val) && Number.isInteger(val) && val >= 0) {
+          return val;
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching MAX_FAIR_COINS_PER_PURCHASE setting:', err);
+    }
+    return 100;
+  },
+
+  /**
    * Retrieves Fair Coins summary for a user (without touching the fiat Wallet collection).
+   * Enforces the authoritative fixed conversion rule: 10 Fair Coins = ₹1 (1 Fair Coin = ₹0.10).
    */
   async getOrCreateWallet(userId) {
     const user = await User.findById(userId).select('fairCoinBalance');
@@ -14,12 +37,11 @@ export const fairCoinService = {
       throw new ApiError(404, 'User not found', ERROR_CODES.NOT_FOUND);
     }
 
-    const { Settings } = await import('../models/Settings.js');
-    const coinRateSetting = await Settings.findOne({ key: 'FAIR_COINS_PER_RUPEE' });
-    const coinsPerRupee = coinRateSetting?.value ? Number(coinRateSetting.value) : 10;
+    const coinsPerRupee = FAIR_COIN_CONVERSION.COINS_PER_RUPEE; // Permanently 10
+    const rupeesPerCoin = FAIR_COIN_CONVERSION.RUPEES_PER_COIN; // Permanently 0.10
 
     // Aggregate lifetime earned and spent from CoinTransactions
-    const [earnedAgg, spentAgg] = await Promise.all([
+    const [earnedAgg, spentAgg, maxCoinsPerPurchase] = await Promise.all([
       CoinTransaction.aggregate([
         { $match: { userId: user._id, type: { $in: ['REFERRAL_REWARD', 'PURCHASE_REWARD', 'BONUS', 'SPIN_REWARD', 'CREDIT'] } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -28,19 +50,23 @@ export const fairCoinService = {
         { $match: { userId: user._id, type: 'DEBIT' } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
+      this.getMaxCoinsPerPurchase(),
     ]);
 
-    const totalEarned = earnedAgg[0]?.total || user.fairCoinBalance;
+    const totalEarned = earnedAgg[0]?.total || user.fairCoinBalance || 0;
     const totalSpent = spentAgg[0]?.total || 0;
     const balance = user.fairCoinBalance || 0;
-    const rupeeValue = Math.round((balance / (coinsPerRupee || 10)) * 100) / 100;
+    const rupeeValue = FAIR_COIN_CONVERSION.toRupees(balance);
 
     return {
       userId: user._id,
       balance,
       coinsPerRupee,
+      rupeesPerCoin,
       rupeeValue,
-      conversionText: `${coinsPerRupee} Fair Coins = ₹1`,
+      conversionRate: coinsPerRupee,
+      conversionText: FAIR_COIN_CONVERSION.CONVERSION_TEXT,
+      maxCoinsPerPurchase,
       totalEarned,
       totalSpent,
     };

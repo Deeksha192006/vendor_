@@ -369,6 +369,17 @@ export const paymentService = {
           const vendor = await withSession(Vendor.findById(vendorId));
           const suborderNum = `${order.publicOrderId || order.orderNumber}-V${String(vendorIndex).padStart(2, '0')}`;
           
+          const vendorTotalUnits = vItems.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
+          const { platformCommissionService } = await import('./platformCommissionService.js');
+          const directReferrerVendor = await platformCommissionService.getDirectReferrerVendor(vendorId, inTransaction ? session : null);
+          const hasReferrer = Boolean(directReferrerVendor);
+
+          const { commissionRate, platformCommission, referralRate, referralCommission, vendorShare } = platformCommissionService.calculate(
+            vSubtotal,
+            vendorTotalUnits,
+            hasReferrer
+          );
+
           const newSuborders = await VendorOrder.create([{
             publicSuborderId: suborderNum,
             subOrderNumber: suborderNum,
@@ -384,9 +395,16 @@ export const paymentService = {
             discountTotal: 0,
             shippingTotal: 0,
             grandTotal: vSubtotal,
-            platformCommission: 0,
-            vendorEarning: 0,
+            commissionRate,
+            eligibleItemCount: vendorTotalUnits,
+            platformCommission,
+            referrerVendorId: directReferrerVendor ? directReferrerVendor._id : null,
+            referralCommissionRate: referralRate,
+            referralCommission,
+            referralSettlementStatus: hasReferrer ? 'PENDING_DELIVERY' : 'NONE',
+            vendorEarning: vendorShare,
             status: 'CONFIRMED',
+            settlementStatus: 'PENDING_DELIVERY',
           }], createOption);
           const newSuborder = newSuborders[0];
           suborderId = newSuborder._id;

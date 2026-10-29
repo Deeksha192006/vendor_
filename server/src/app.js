@@ -22,11 +22,21 @@ app.use(observabilityMiddleware);
 // Security Headers
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration supporting single or comma-delimited custom domains
+const allowedClientUrls = (env.CLIENT_URL || '')
+  .split(',')
+  .map((u) => u.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === env.CLIENT_URL) {
+      if (
+        !origin ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+        allowedClientUrls.includes(origin) ||
+        origin === env.CLIENT_URL
+      ) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS'));

@@ -24,10 +24,12 @@ export const getAdminCommissionOverview = asyncWrapper(async (req, res) => {
     .populate('items.vendorId', 'storeName slug')
     .lean();
 
+  let totalVerifiedCustomerPayments = 0;
   let totalVendorProductSales = 0;
   let totalCommissionEarned = 0;
   let commissionPendingDelivery = 0;
   let commissionEligibleForSettlement = 0;
+  let pendingVendorProceeds = 0;
   let totalVendorPayables = 0;
   let totalVendorPayoutsCompleted = 0;
   let totalRefundsReversals = 0;
@@ -38,12 +40,22 @@ export const getAdminCommissionOverview = asyncWrapper(async (req, res) => {
     const isCancelled = order.orderStatus === 'CANCELLED';
     const isRefunded = order.paymentStatus === 'REFUNDED' || order.orderStatus === 'REFUNDED';
 
+    if (isPaid && !isCancelled && !isRefunded) {
+      totalVerifiedCustomerPayments = moneyUtils.addMoney(totalVerifiedCustomerPayments, order.grandTotal || order.total || 0);
+    }
+
     order.items?.forEach((item) => {
       // Strictly skip platform Admin Store products
       if (!item.vendorId) return;
 
       const itemAmount = item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      const { platformCommission, vendorShare } = platformCommissionService.calculate(itemAmount);
+      const commissionRate = 5; // Fixed 5% rate
+      const platformCommission = typeof item.platformCommission === 'number'
+        ? item.platformCommission
+        : platformCommissionService.calculateLine(item.unitPrice || item.price, item.quantity || 1).platformCommission;
+      const vendorShare = typeof item.vendorShare === 'number'
+        ? item.vendorShare
+        : platformCommissionService.calculateLine(item.unitPrice || item.price, item.quantity || 1).vendorProceeds;
 
       // Cancelled / Refunded reversals
       if (isCancelled || isRefunded) {
@@ -68,9 +80,25 @@ export const getAdminCommissionOverview = asyncWrapper(async (req, res) => {
         } else {
           // Paid but not yet delivered: Pending delivery
           commissionPendingDelivery = moneyUtils.addMoney(commissionPendingDelivery, platformCommission);
+          pendingVendorProceeds = moneyUtils.addMoney(pendingVendorProceeds, vendorShare);
         }
       }
     });
+  });
+
+  // Calculate settlement status counts and amounts
+  const settlements = await VendorSettlement.find({ createdAt: { $gte: start, $lte: end } }).lean();
+  let amountEligibleForPayout = 0;
+  let failedOrHeldPayouts = 0;
+  const now = new Date();
+
+  settlements.forEach((s) => {
+    if (s.status === 'ELIGIBLE' && s.eligibleAt && new Date(s.eligibleAt) <= now) {
+      amountEligibleForPayout = moneyUtils.addMoney(amountEligibleForPayout, s.netPayable || s.vendorPayoutAmount || 0);
+    }
+    if (['ON_HOLD', 'FAILED', 'BLOCKED'].includes(s.status)) {
+      failedOrHeldPayouts = moneyUtils.addMoney(failedOrHeldPayouts, s.netPayable || s.vendorPayoutAmount || 0);
+    }
   });
 
   return res.status(200).json(
@@ -81,12 +109,19 @@ export const getAdminCommissionOverview = asyncWrapper(async (req, res) => {
         startDate: start,
         endDate: end,
         metrics: {
+          totalVerifiedCustomerPayments,
+          totalEligibleProductSales: totalVendorProductSales,
           totalVendorProductSales,
+          totalPlatformCommissionEarned: totalCommissionEarned,
           totalCommissionEarned,
           commissionPendingDelivery,
           commissionEligibleForSettlement,
+          pendingVendorProceeds,
+          amountEligibleForPayout,
           totalVendorPayables,
           totalVendorPayoutsCompleted,
+          completedVendorPayouts: totalVendorPayoutsCompleted,
+          failedOrHeldPayouts,
           totalRefundsReversals,
           effectiveRate: 5,
         },
@@ -160,7 +195,13 @@ export const getAdminCommissionTransactions = asyncWrapper(async (req, res) => {
       }
 
       const itemEligible = item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      const { platformCommission, vendorShare } = platformCommissionService.calculate(itemEligible);
+      const commissionRate = typeof item.commissionRate === 'number' ? item.commissionRate : ((item.quantity || 1) * 5);
+      const platformCommission = typeof item.platformCommission === 'number'
+        ? item.platformCommission
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).platformCommission;
+      const vendorShare = typeof item.vendorShare === 'number'
+        ? item.vendorShare
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).vendorShare;
 
       // Determine real-time settlement status
       let sStatus = item.settlementStatus || 'PENDING_DELIVERY';
@@ -193,7 +234,7 @@ export const getAdminCommissionTransactions = asyncWrapper(async (req, res) => {
         quantity: item.quantity,
         unitPrice: item.unitPrice || item.price,
         eligibleSaleAmount: itemEligible,
-        commissionRate: 5,
+        commissionRate,
         platformCommission,
         vendorShare,
         paymentStatus: order.paymentStatus,
@@ -268,7 +309,12 @@ export const getAdminVendorCommissionsSummary = asyncWrapper(async (req, res) =>
 
       const vRec = vendorMap.get(vId);
       const itemEligible = item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      const { platformCommission, vendorShare } = platformCommissionService.calculate(itemEligible);
+      const platformCommission = typeof item.platformCommission === 'number'
+        ? item.platformCommission
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).platformCommission;
+      const vendorShare = typeof item.vendorShare === 'number'
+        ? item.vendorShare
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).vendorShare;
 
       if (isPaid) {
         vRec.totalOrders.add(order._id.toString());
@@ -395,7 +441,13 @@ export const exportAdminCommissionsCsv = asyncWrapper(async (req, res) => {
       if (!item.vendorId) return;
 
       const itemEligible = item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      const { platformCommission, vendorShare } = platformCommissionService.calculate(itemEligible);
+      const commissionRate = typeof item.commissionRate === 'number' ? item.commissionRate : ((item.quantity || 1) * 5);
+      const platformCommission = typeof item.platformCommission === 'number'
+        ? item.platformCommission
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).platformCommission;
+      const vendorShare = typeof item.vendorShare === 'number'
+        ? item.vendorShare
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).vendorShare;
 
       let sStatus = item.settlementStatus || 'PENDING_DELIVERY';
       if (order.orderStatus === 'CANCELLED') sStatus = 'CANCELLED';
@@ -412,7 +464,7 @@ export const exportAdminCommissionsCsv = asyncWrapper(async (req, res) => {
         item.quantity || 1,
         item.unitPrice || 0,
         itemEligible,
-        '5%',
+        `"${commissionRate}%"`,
         platformCommission,
         vendorShare,
         `"${order.paymentStatus}"`,
@@ -464,7 +516,12 @@ export const getVendorEarnings = asyncWrapper(async (req, res) => {
       if (!item.vendorId || item.vendorId.toString() !== vendor._id.toString()) return;
 
       const itemEligible = item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      const { platformCommission, vendorShare } = platformCommissionService.calculate(itemEligible);
+      const platformCommission = typeof item.platformCommission === 'number'
+        ? item.platformCommission
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).platformCommission;
+      const vendorShare = typeof item.vendorShare === 'number'
+        ? item.vendorShare
+        : platformCommissionService.calculate(itemEligible, item.quantity || 1).vendorShare;
 
       let sStatus = item.settlementStatus || 'PENDING_DELIVERY';
       if (isCancelled) sStatus = 'CANCELLED';
@@ -526,5 +583,65 @@ export const getVendorEarnings = asyncWrapper(async (req, res) => {
       },
       'Vendor sales and earnings retrieved successfully'
     )
+  );
+});
+
+// =========================================================================
+// 8. SUPER ADMIN: PRODUCT-WISE COMMISSION BREAKDOWN
+// =========================================================================
+export const getAdminProductCommissionsSummary = asyncWrapper(async (req, res) => {
+  const { range = 'THIS_MONTH', startDate, endDate } = req.query;
+  const { start, end } = parseDateRange(range, startDate, endDate);
+
+  const orders = await Order.find({ createdAt: { $gte: start, $lte: end } })
+    .populate('items.vendorId', 'storeName slug')
+    .populate('items.productId', 'name sku images')
+    .lean();
+
+  const productMap = new Map();
+
+  orders.forEach((order) => {
+    if (order.orderStatus === 'CANCELLED') return;
+    const isPaid = order.paymentStatus === 'PAID' || (order.paymentMethod === 'COD' && order.orderStatus === 'DELIVERED');
+
+    order.items?.forEach((item) => {
+      if (!item.vendorId) return;
+      const pId = item.productId?._id ? item.productId._id.toString() : (item.productId?.toString() || item.skuSnapshot);
+
+      if (!productMap.has(pId)) {
+        productMap.set(pId, {
+          productId: pId,
+          productName: item.productNameSnapshot || item.productId?.name || item.name || 'Product',
+          sku: item.skuSnapshot || item.productId?.sku || 'N/A',
+          vendorId: item.vendorId?._id || item.vendorId,
+          vendorName: item.vendorId?.storeName || 'Vendor',
+          image: item.productImageSnapshot || item.productId?.images?.[0] || item.image || '',
+          unitPrice: item.unitPrice || item.price,
+          totalUnitsSold: 0,
+          grossSales: 0,
+          commissionRate: 5,
+          platformCommission: 0,
+          vendorProceeds: 0,
+        });
+      }
+
+      if (isPaid) {
+        const pRec = productMap.get(pId);
+        const qty = item.quantity || 1;
+        const lineTotal = item.lineTotal || (item.unitPrice || item.price || 0) * qty;
+        const lineCalc = platformCommissionService.calculateLine(item.unitPrice || item.price, qty);
+
+        pRec.totalUnitsSold += qty;
+        pRec.grossSales = moneyUtils.addMoney(pRec.grossSales, lineTotal);
+        pRec.platformCommission = moneyUtils.addMoney(pRec.platformCommission, lineCalc.platformCommission);
+        pRec.vendorProceeds = moneyUtils.addMoney(pRec.vendorProceeds, lineCalc.vendorProceeds);
+      }
+    });
+  });
+
+  const products = Array.from(productMap.values()).sort((a, b) => b.grossSales - a.grossSales);
+
+  return res.status(200).json(
+    new ApiResponse(200, { products }, 'Product-wise commission breakdown retrieved')
   );
 });

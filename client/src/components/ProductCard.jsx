@@ -32,11 +32,25 @@ export const ProductCard = ({
     isMadeInIndia,
   } = product;
 
+  // Resolve selling price & MRP from actual product data
+  const rawSellingPrice = (product.discountPrice && Number(product.discountPrice) > 0 && Number(product.discountPrice) < Number(price))
+    ? Number(product.discountPrice)
+    : Number(price || 0);
+
+  const candidateMrp = Number(mrp || product.originalPrice || 0);
+  const fallbackMrpFromDiscount = (product.discountPrice && Number(product.discountPrice) > 0 && Number(price) > rawSellingPrice)
+    ? Number(price)
+    : 0;
+  const rawMrp = candidateMrp > 0 ? candidateMrp : fallbackMrpFromDiscount;
+
+  // Ensure MRP is strictly greater than selling price to display strikethrough & discount
+  const effectiveMrp = rawMrp > rawSellingPrice ? rawMrp : null;
+  const sellingPrice = rawSellingPrice;
+
   // Calculate discount percentage
-  const effectiveMrp = mrp > price ? mrp : null;
   const discountPercent = effectiveMrp
-    ? Math.round(((effectiveMrp - price) / effectiveMrp) * 100)
-    : null;
+    ? Math.round(((effectiveMrp - sellingPrice) / effectiveMrp) * 100)
+    : (product.discountValue || null);
 
   const displayImage = images && images.length > 0
     ? (typeof images[0] === 'string' ? images[0] : images[0]?.url)
@@ -86,6 +100,9 @@ export const ProductCard = ({
         <img
           src={displayImage}
           alt={name}
+          onError={(e) => {
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=60';
+          }}
           className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
         />
@@ -99,7 +116,7 @@ export const ProductCard = ({
           )}
           {isIndianProduct && (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-[#30358F] text-white shadow-xs flex items-center gap-1">
-              <span>🇮🇳</span> Made in India
+              <ShieldCheck className="w-3 h-3 text-[#F7941D]" /> Made in India
             </span>
           )}
         </div>
@@ -108,7 +125,7 @@ export const ProductCard = ({
         <button
           onClick={handleWishlistClick}
           aria-label="Save to Wishlist"
-          className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[#ED1C2E] hover:border-[#ED1C2E]/40 transition-colors shadow-xs"
+          className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-xl bg-white/90 backdrop-blur-xs border border-slate-200 flex items-center justify-center text-slate-500 hover:text-[#ED1C2E] hover:border-[#ED1C2E]/40 transition-colors shadow-xs"
         >
           <Heart className={`w-4 h-4 ${localWishlisted ? 'fill-[#ED1C2E] text-[#ED1C2E]' : ''}`} />
         </button>
@@ -116,7 +133,7 @@ export const ProductCard = ({
         {/* Out of Stock Ribbon */}
         {stock <= 0 && (
           <div className="absolute inset-0 bg-white/75 backdrop-blur-xs flex items-center justify-center z-10">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-800 text-white">
+            <span className="px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-800 text-white">
               Out of Stock
             </span>
           </div>
@@ -139,33 +156,41 @@ export const ProductCard = ({
           </Link>
 
           {/* Rating */}
-          <div className="flex items-center gap-1.5 mt-1.5 text-xs">
-            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-bold text-[11px]">
-              <span>{rating ? Number(rating).toFixed(1) : '4.5'}</span>
-              <Star className="w-3 h-3 fill-emerald-600 text-emerald-600 ml-0.5" />
-            </div>
-            {reviewsCount > 0 && (
-              <span className="text-[11px] text-slate-400 font-medium">({reviewsCount})</span>
+          <div className="flex items-center gap-1.5 mt-1.5 text-xs min-h-[22px]">
+            {reviewsCount > 0 ? (
+              <>
+                <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-bold text-[11px]">
+                  <span>{Number(rating).toFixed(1)}</span>
+                  <Star className="w-3 h-3 fill-emerald-600 text-emerald-600 ml-0.5" />
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">({reviewsCount})</span>
+              </>
+            ) : (
+              <span className="text-[11px] text-slate-400 font-medium">No reviews yet</span>
             )}
           </div>
         </div>
 
         {/* Pricing & Add to Cart Footer */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
-          <div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-base sm:text-lg font-black text-[#222222]">
-                ₹{Number(price).toLocaleString('en-IN')}
-              </span>
-              {effectiveMrp && (
-                <span className="text-xs text-slate-400 line-through">
-                  ₹{Number(effectiveMrp).toLocaleString('en-IN')}
+          <div className="flex flex-col justify-center min-w-0">
+            {effectiveMrp ? (
+              <div className="flex flex-col">
+                <span className="text-xs text-slate-400 line-through font-medium leading-none mb-1">
+                  ₹{Number(effectiveMrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-              )}
-            </div>
-            {discountPercent && discountPercent > 0 && (
-              <span className="text-[10px] font-bold text-[#F7941D] block -mt-0.5">
-                Save ₹{(effectiveMrp - price).toLocaleString('en-IN')}
+                <span className="text-base sm:text-lg font-black text-[#222222] leading-tight">
+                  ₹{Number(sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            ) : (
+              <span className="text-base sm:text-lg font-black text-[#222222] leading-tight">
+                ₹{Number(sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+            {discountPercent && discountPercent > 0 && effectiveMrp && (
+              <span className="text-[10px] font-bold text-[#F7941D] block mt-0.5">
+                Save ₹{(effectiveMrp - sellingPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>

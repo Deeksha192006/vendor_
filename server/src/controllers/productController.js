@@ -58,6 +58,7 @@ export const getHomeShowcase = asyncWrapper(async (req, res) => {
   const { Settings } = await import('../models/Settings.js');
   const { Brand } = await import('../models/Brand.js');
   const { Vendor } = await import('../models/Vendor.js');
+  const { Banner } = await import('../models/Banner.js');
 
   const settingsDocs = await Settings.find({
     key: {
@@ -101,10 +102,26 @@ export const getHomeShowcase = asyncWrapper(async (req, res) => {
     .sort({ totalSales: -1, rating: -1 })
     .limit(6);
 
+  const now = new Date();
+  const activeBanners = await Banner.find({
+    isActive: true,
+    $and: [
+      {
+        $or: [{ startDate: null }, { startDate: { $exists: false } }, { startDate: { $lte: now } }],
+      },
+      {
+        $or: [{ endDate: null }, { endDate: { $exists: false } }, { endDate: { $gte: now } }],
+      },
+    ],
+  })
+    .sort({ displayOrder: 1, createdAt: -1 })
+    .select('title imageUrl heading subtitle buttonLabel buttonDestinationUrl altText displayOrder');
+
   return res.status(200).json(
     new ApiResponse(
       200,
       {
+        banners: activeBanners,
         bannerSettings: {
           flashSaleBadge: bannerSettings.BANNER_FLASH_SALE_BADGE || 'LIMITED TIME FLASH SALE',
           flashSaleTitle: bannerSettings.BANNER_FLASH_SALE_TITLE || 'Supercharged Deals • Up to 65% OFF',

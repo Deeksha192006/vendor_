@@ -9,7 +9,7 @@ export const AuthLayout = ({
   title = 'Shop Indian. Build India.',
   subtitle = 'Discover verified Indian manufacturers, quality products, and direct artisan commerce.',
   imageSrc = '/images/baapoo-mart-logo.png',
-  imageAlt = 'BAAPOO MART — BUY INDIAN • BUILD INDIA',
+  imageAlt = 'BAAPOO MART: BUY INDIAN • BUILD INDIA',
   features = [
     { icon: Flag, text: 'BUY INDIAN • BUILD INDIA Commerce' },
     { icon: Gift, text: 'Earn Cashback Coins on every order' },
@@ -63,7 +63,7 @@ export const AuthLayout = ({
               <div className="py-4">
                 <img
                   src="/images/baapoo-mart-logo.png"
-                  alt="BAAPOO MART — BUY INDIAN • BUILD INDIA"
+                  alt="BAAPOO MART: BUY INDIAN • BUILD INDIA"
                   className="max-h-48 w-auto object-contain drop-shadow-sm select-none"
                 />
               </div>

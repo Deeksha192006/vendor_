@@ -34,7 +34,7 @@ export const NotFound = () => {
         </div>
 
         <span className="px-3 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider">
-          404 — Not Found
+          404: Page Not Found
         </span>
 
         <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-3 mb-2">

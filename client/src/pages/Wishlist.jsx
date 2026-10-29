@@ -137,13 +137,28 @@ export const Wishlist = () => {
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                       {product.description || 'Verified product from certified Indian merchant'}
                     </p>
-                    <div className="mt-3 flex items-baseline gap-2">
-                      <span className="text-base font-black text-[#222222]">
-                        ₹{Number(product.price || 0).toLocaleString('en-IN')}
-                      </span>
-                      {product.originalPrice && product.originalPrice > product.price && (
-                        <span className="text-xs text-slate-400 line-through">
-                          ₹{Number(product.originalPrice).toLocaleString('en-IN')}
+                    <div className="mt-3 flex flex-col justify-center">
+                      {product.mrp && Number(product.mrp) > Number(product.price) ? (
+                        <>
+                          <span className="text-xs text-slate-400 line-through font-medium leading-none mb-1">
+                            ₹{Number(product.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-base font-black text-[#222222] leading-tight">
+                            ₹{Number(product.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </>
+                      ) : product.originalPrice && Number(product.originalPrice) > Number(product.price) ? (
+                        <>
+                          <span className="text-xs text-slate-400 line-through font-medium leading-none mb-1">
+                            ₹{Number(product.originalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-base font-black text-[#222222] leading-tight">
+                            ₹{Number(product.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-base font-black text-[#222222] leading-tight">
+                          ₹{Number(product.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       )}
                     </div>

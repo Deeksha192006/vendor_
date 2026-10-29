@@ -70,9 +70,6 @@ export const Home = () => {
   // Showcase state from Super Admin
   const [showcase, setShowcase] = useState(null);
 
-  // Live Flash Sale Timer State
-  const [timeLeft, setTimeLeft] = useState({ hours: 8, minutes: 24, seconds: 45 });
-
   // Referral Calculator State
   const [calcDirectInvites, setCalcDirectInvites] = useState(5);
   const [calcFriendSpend, setCalcFriendSpend] = useState(2000);
@@ -83,32 +80,13 @@ export const Home = () => {
     if (isAuthenticated) {
       fetchWishlist();
     }
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 12, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
   }, [isAuthenticated]);
 
   const fetchShowcase = async () => {
     try {
       const res = await api.get('/products/home-showcase');
       if (res.data?.success && res.data?.data) {
-        const data = res.data.data;
-        setShowcase(data);
-        if (data.flashSale) {
-          setTimeLeft({
-            hours: parseInt(data.flashSale.hours, 10) || 8,
-            minutes: parseInt(data.flashSale.minutes, 10) || 24,
-            seconds: parseInt(data.flashSale.seconds, 10) || 45
-          });
-        }
+        setShowcase(res.data.data);
       }
     } catch (err) {
       console.error('Failed to load home showcase', err);
@@ -200,7 +178,7 @@ export const Home = () => {
       {/* ========================================================================= */}
       {/* 1. HERO SECTION                                                           */}
       {/* ========================================================================= */}
-      <HeroSection />
+      <HeroSection banners={showcase?.banners} />
 
       {/* ========================================================================= */}
       {/* 2. PROMOTIONAL OFFERS & FLASH DEALS BANNER                                */}
@@ -225,36 +203,30 @@ export const Home = () => {
               </p>
             </div>
 
-            {/* Live Countdown Clock */}
-            <div className="flex items-center gap-2.5">
-              <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="flex flex-col items-center bg-white shadow-xs rounded-2xl p-3 sm:p-4 min-w-[64px] border border-red-200">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-[#ED1C2E]">
-                  {String(timeLeft.hours).padStart(2, '0')}
-                </span>
-                <span className="text-[10px] uppercase font-bold text-slate-500">Hours</span>
-              </motion.div>
-              <span className="text-2xl font-black text-[#ED1C2E]">:</span>
-              <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 2, delay: 0.3 }} className="flex flex-col items-center bg-white shadow-xs rounded-2xl p-3 sm:p-4 min-w-[64px] border border-red-200">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-[#ED1C2E]">
-                  {String(timeLeft.minutes).padStart(2, '0')}
-                </span>
-                <span className="text-[10px] uppercase font-bold text-slate-500">Mins</span>
-              </motion.div>
-              <span className="text-2xl font-black text-[#ED1C2E]">:</span>
-              <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 2, delay: 0.6 }} className="flex flex-col items-center bg-white shadow-xs rounded-2xl p-3 sm:p-4 min-w-[64px] border border-red-200">
-                <span className="text-2xl sm:text-3xl font-black font-mono text-[#ED1C2E]">
-                  {String(timeLeft.seconds).padStart(2, '0')}
-                </span>
-                <span className="text-[10px] uppercase font-bold text-slate-500">Secs</span>
-              </motion.div>
+            {/* Verified Savings Highlights */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2.5 bg-white shadow-xs rounded-2xl px-4 py-3 border border-red-200">
+                <Percent className="w-5 h-5 text-[#ED1C2E]" />
+                <div>
+                  <div className="text-xs font-black text-slate-900">Direct From Source</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Zero Middleman Markups</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 bg-white shadow-xs rounded-2xl px-4 py-3 border border-red-200">
+                <Truck className="w-5 h-5 text-[#30358F]" />
+                <div>
+                  <div className="text-xs font-black text-slate-900">Pan-India Express</div>
+                  <div className="text-[10px] text-slate-500 font-medium">Free On Orders Above ₹499</div>
+                </div>
+              </div>
             </div>
 
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Link
                 to={showcase?.flashSale?.buttonLink || '/products?discount=true'}
-                className="px-6 py-3.5 rounded-2xl bg-[#ED1C2E] hover:bg-[#D91425] text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-md shadow-red-500/20 transition-all shrink-0 flex items-center gap-2"
+                className="px-6 py-3.5 rounded-xl bg-[#ED1C2E] hover:bg-[#D91425] text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-md shadow-red-500/20 transition-all shrink-0 flex items-center gap-2"
               >
-                <span>{showcase?.flashSale?.buttonText || 'View Flash Deals'}</span>
+                <span>{showcase?.flashSale?.buttonText || 'Explore Best Deals'}</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </motion.div>
@@ -394,8 +366,8 @@ export const Home = () => {
             <div className="flex items-center gap-2">
               {[
                 { id: 'all', label: 'All Items' },
-                { id: 'deals', label: 'Flash Deals' },
-                { id: 'highRating', label: '★ 4.5+ Rated' }
+                { id: 'deals', label: 'Discount Deals' },
+                { id: 'highRating', label: 'Top Rated (4.5+)' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -524,10 +496,10 @@ export const Home = () => {
                     <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
                       <span className="flex items-center gap-1 text-amber-600 font-bold">
                         <Star className="w-3 h-3 fill-amber-400" />
-                        <span>{v?.rating ? Number(v.rating).toFixed(1) : '4.9'}</span>
+                        <span>{v?.rating && Number(v.rating) > 0 ? Number(v.rating).toFixed(1) : 'Verified'}</span>
                       </span>
                       <span>•</span>
-                      <span>{v?.totalProducts || v?.totalSales || 10}+ Items</span>
+                      <span>{v?.totalProducts || 1}+ Items</span>
                     </div>
                   </div>
                 </motion.div>

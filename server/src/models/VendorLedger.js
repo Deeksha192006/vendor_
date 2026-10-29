@@ -7,7 +7,18 @@ const vendorLedgerSchema = new mongoose.Schema(
     suborderId: { type: mongoose.Schema.Types.ObjectId, ref: 'VendorOrder', default: null, index: true },
     transactionType: { 
       type: String, 
-      enum: ['SALE', 'SALE_EARNED', 'PLATFORM_COMMISSION', 'NETWORK_COMMISSION', 'PAYOUT', 'WITHDRAWAL_RESERVE', 'REFUND_REVERSAL', 'ADJUSTMENT'], 
+      enum: [
+        'SALE',
+        'SALE_EARNED',
+        'PLATFORM_COMMISSION',
+        'NETWORK_COMMISSION',
+        'PAYOUT',
+        'WITHDRAWAL_RESERVE',
+        'REFUND_REVERSAL',
+        'ADJUSTMENT',
+        'VENDOR_REFERRAL_COMMISSION_EARNED',
+        'VENDOR_REFERRAL_PAYOUT',
+      ], 
       required: true 
     },
     credit: { type: Number, default: 0 },

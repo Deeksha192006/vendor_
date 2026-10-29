@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { fetchCurrentUser } from './store/authSlice';
 import { AppRoutes } from './routes/AppRoutes';
 import { getAccessToken } from './services/api';
+import { CookieConsentBanner } from './components/legal/CookieConsentBanner';
 
 export const App = () => {
   const dispatch = useDispatch();
@@ -24,6 +25,7 @@ export const App = () => {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppRoutes />
+      <CookieConsentBanner />
     </BrowserRouter>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import api from '../services/api';
-import { ShoppingBag, Coins, Trash2, ArrowRight, Tag, Loader2, X, Percent, LayoutDashboard, ArrowLeft, ShieldCheck, Flag } from 'lucide-react';
+import { ShoppingBag, Coins, Trash2, ArrowRight, Tag, Loader2, X, Percent, LayoutDashboard, ArrowLeft, ShieldCheck, Flag, AlertCircle } from 'lucide-react';
 
 export const Cart = () => {
   const navigate = useNavigate();
@@ -10,6 +10,9 @@ export const Cart = () => {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [coinsToUse, setCoinsToUse] = useState(0);
+  const [coinsInput, setCoinsInput] = useState('');
+  const [coinAlert, setCoinAlert] = useState('');
+  const [maxCoinsPerPurchase, setMaxCoinsPerPurchase] = useState(100);
   const [coinsPerRupee, setCoinsPerRupee] = useState(10);
   const [selectedItemKeys, setSelectedItemKeys] = useState([]);
 
@@ -34,6 +37,9 @@ export const Cart = () => {
       if (cartData?.coinsPerRupee) {
         setCoinsPerRupee(Number(cartData.coinsPerRupee));
       }
+      if (cartData?.maxCoinsPerPurchase !== undefined) {
+        setMaxCoinsPerPurchase(Number(cartData.maxCoinsPerPurchase));
+      }
       if (cartData?.items) {
         setSelectedItemKeys(cartData.items.map((item) => getItemKey(item)));
       }
@@ -46,6 +52,45 @@ export const Cart = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyCoins = (e) => {
+    if (e) e.preventDefault();
+    setCoinAlert('');
+    const raw = String(coinsInput).trim();
+    if (!raw) {
+      setCoinsToUse(0);
+      return;
+    }
+    const entered = Number(raw);
+    if (isNaN(entered) || !Number.isInteger(entered) || entered < 0) {
+      setCoinAlert('Please enter a valid non-negative whole number of Fair Coins.');
+      return;
+    }
+    if (entered === 0) {
+      setCoinsToUse(0);
+      return;
+    }
+    if (entered > maxCoinsPerPurchase) {
+      setCoinAlert(
+        `You can use only ${maxCoinsPerPurchase} Fair Coins per purchase. Please reduce the amount and try again.`
+      );
+      return;
+    }
+    const currentBalance = Number(user?.fairCoinBalance) || 0;
+    if (entered > currentBalance) {
+      setCoinAlert(
+        `You cannot redeem more than your available balance of ${currentBalance} Fair Coins.`
+      );
+      return;
+    }
+    setCoinsToUse(entered);
+  };
+
+  const handleRemoveCoins = () => {
+    setCoinsToUse(0);
+    setCoinsInput('');
+    setCoinAlert('');
   };
 
   const handleUpdateQuantity = async (productId, quantity, variantSku = '') => {
@@ -233,7 +278,16 @@ export const Cart = () => {
                     {item.variantSku && (
                       <div className="text-[10px] text-slate-500 font-mono mt-0.5">Option: {item.variantSku}</div>
                     )}
-                    <div className="text-xs font-black text-[#ED1C2E] mt-1">₹{Number(item.price).toFixed(2)}</div>
+                    <div className="mt-1 flex flex-col">
+                      {item.productId?.mrp && Number(item.productId.mrp) > Number(item.price) && (
+                        <span className="text-[11px] text-slate-400 line-through font-medium leading-none mb-0.5">
+                          ₹{Number(item.productId.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                      <span className="text-xs font-black text-[#ED1C2E] leading-tight">
+                        ₹{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Quantity Controls */}
@@ -317,27 +371,67 @@ export const Cart = () => {
             </div>
 
             {/* Coins Redemption Box */}
-            <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-2xl space-y-2">
+            <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-2xl space-y-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-amber-900 flex items-center gap-1.5">
                   <Coins className="w-4 h-4 text-amber-500" />
                   Redeem Reward Coins
                 </span>
-                <span className="text-[11px] text-amber-700 font-bold">Balance: {Number(user?.fairCoinBalance || 0).toLocaleString()}</span>
+                <span className="text-[11px] text-amber-700 font-bold">
+                  Balance: {Number(user?.fairCoinBalance || 0).toLocaleString()} Coins
+                </span>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <p className="text-xs text-amber-900 font-medium">
+                You can use up to {maxCoinsPerPurchase} Fair Coins per purchase.
+              </p>
+
+              {coinAlert && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[#ED1C2E] text-xs font-bold flex items-start gap-1.5 shadow-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#ED1C2E]" />
+                  <span>{coinAlert}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-0.5">
                 <input
                   type="number"
-                  max={user?.fairCoinBalance || 0}
-                  min={0}
-                  value={coinsToUse}
-                  onChange={(e) => setCoinsToUse(Math.min(user?.fairCoinBalance || 0, Number(e.target.value)))}
+                  min="0"
+                  step="1"
+                  value={coinsInput}
+                  onChange={(e) => {
+                    setCoinsInput(e.target.value);
+                    setCoinAlert('');
+                  }}
                   placeholder="Enter coins"
-                  className="w-full bg-white text-xs text-slate-900 rounded-lg px-3 py-2 border border-amber-300 focus:outline-none"
+                  className="w-full bg-white text-xs text-slate-900 rounded-lg px-3 py-2 border border-amber-300 focus:outline-none focus:border-amber-500 font-bold"
                 />
+                <button
+                  type="button"
+                  onClick={handleApplyCoins}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shrink-0 transition-colors shadow-xs"
+                >
+                  Apply
+                </button>
+                {coinsToUse > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoins}
+                    className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-lg shrink-0 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
-              <p className="text-[10px] text-amber-700 font-semibold">{coinsPerRupee} Coins = ₹1 Discount</p>
+
+              <div className="flex items-center justify-between text-[10px] text-amber-700 font-bold pt-0.5">
+                <span>{coinsPerRupee} Coins = ₹1 Discount</span>
+                {coinsToUse > 0 && (
+                  <span className="text-emerald-700">
+                    Applied: {coinsToUse} coins (-₹{Number(coinDiscount).toFixed(2)})
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Summary calculation log */}
@@ -375,7 +469,7 @@ export const Cart = () => {
             <button
               onClick={() => {
                 if (selectedItemKeys.length === 0) return;
-                navigate('/checkout', { state: { selectedItemKeys, coinsToUse, coinsPerRupee } });
+                navigate('/checkout', { state: { selectedItemKeys, coinsToUse, coinsPerRupee, maxCoinsPerPurchase } });
               }}
               disabled={selectedItemKeys.length === 0}
               className="w-full py-4 rounded-2xl bg-[#ED1C2E] hover:bg-[#D91425] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-xs uppercase tracking-wider shadow-md shadow-red-500/20 flex items-center justify-center gap-2 transition-all active:scale-98"

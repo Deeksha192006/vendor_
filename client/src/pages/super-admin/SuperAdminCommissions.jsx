@@ -21,7 +21,10 @@ import {
   FileSpreadsheet,
   Check,
   X,
-  CreditCard
+  CreditCard,
+  Package,
+  Users,
+  Lock,
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -34,19 +37,23 @@ const DATE_RANGES = [
 ];
 
 export const SuperAdminCommissions = () => {
-  const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'settlements' | 'vendors'
+  const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'settlements' | 'vendors' | 'products' | 'vendor-referrals'
   const [dateRange, setDateRange] = useState('THIS_MONTH');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Overview metrics state (7 KPI summary cards)
+  // Overview metrics state (KPI summary cards)
   const [metrics, setMetrics] = useState({
+    totalVerifiedCustomerPayments: 0,
     totalVendorProductSales: 0,
     totalCommissionEarned: 0,
     commissionPendingDelivery: 0,
     commissionEligibleForSettlement: 0,
+    pendingVendorProceeds: 0,
+    amountEligibleForPayout: 0,
     totalVendorPayables: 0,
     totalVendorPayoutsCompleted: 0,
+    failedOrHeldPayouts: 0,
     totalRefundsReversals: 0,
   });
 
@@ -69,12 +76,37 @@ export const SuperAdminCommissions = () => {
   // Vendor summary state
   const [vendorSummaries, setVendorSummaries] = useState([]);
 
+  // Product summary state
+  const [productSummaries, setProductSummaries] = useState([]);
+
   // Payout action modal state
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState(null);
   const [payoutRefInput, setPayoutRefInput] = useState('');
   const [payoutNotesInput, setPayoutNotesInput] = useState('');
   const [payoutSubmitting, setPayoutSubmitting] = useState(false);
+
+  // 3% Direct Vendor Referral Commissions state
+  const [refOverview, setRefOverview] = useState({
+    commissionRate: 3,
+    totalReferralPairs: 0,
+    totalReferredSales: 0,
+    totalReferralCommissions: 0,
+    pendingDelivery: 0,
+    onHold7Days: 0,
+    eligibleForPayout: 0,
+    totalPaidOut: 0,
+    totalCancelled: 0,
+  });
+  const [refTransactions, setRefTransactions] = useState([]);
+  const [refStatusFilter, setRefStatusFilter] = useState('ALL');
+  const [refPage, setRefPage] = useState(1);
+  const [refPagination, setRefPagination] = useState({ total: 0, pages: 1, limit: 25 });
+  const [selectedRefCommission, setSelectedRefCommission] = useState(null);
+  const [refPayoutModalOpen, setRefPayoutModalOpen] = useState(false);
+  const [refPayoutRefInput, setRefPayoutRefInput] = useState('');
+  const [refPayoutNotesInput, setRefPayoutNotesInput] = useState('');
+  const [refPayoutSubmitting, setRefPayoutSubmitting] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [actionSuccess, setActionSuccess] = useState('');
@@ -167,6 +199,73 @@ export const SuperAdminCommissions = () => {
     }
   };
 
+  // Fetch product-wise summary
+  const fetchProductSummaries = async () => {
+    try {
+      setLoading(true);
+      const params = { range: dateRange };
+      if (dateRange === 'CUSTOM') {
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+      }
+      const res = await api.get('/admin/commissions/products', { params });
+      if (res.data?.data) {
+        setProductSummaries(res.data.data.products || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch product summaries:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch 3% Direct Vendor Referral Overview
+  const fetchReferralOverview = async () => {
+    try {
+      const params = { range: dateRange };
+      if (dateRange === 'CUSTOM') {
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+      }
+      const res = await api.get('/super-admin/referral-commissions/overview', { params });
+      if (res.data?.data) {
+        setRefOverview(res.data.data.metrics || {});
+      }
+    } catch (err) {
+      console.error('Failed to fetch referral commission overview:', err);
+    }
+  };
+
+  // Fetch 3% Direct Vendor Referral Transactions
+  const fetchReferralTransactions = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        range: dateRange,
+        page: refPage,
+        limit: 25,
+        settlementStatus: refStatusFilter,
+      };
+      if (dateRange === 'CUSTOM') {
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
+      }
+      const res = await api.get('/super-admin/referral-commissions/transactions', { params });
+      if (res.data?.data) {
+        setRefTransactions(res.data.data.transactions || []);
+        setRefPagination({
+          total: res.data.data.total || 0,
+          pages: res.data.data.totalPages || 1,
+          limit: 25,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch referral transactions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
     if (activeTab === 'transactions') {
@@ -175,6 +274,11 @@ export const SuperAdminCommissions = () => {
       fetchSettlements();
     } else if (activeTab === 'vendors') {
       fetchVendorSummaries();
+    } else if (activeTab === 'products') {
+      fetchProductSummaries();
+    } else if (activeTab === 'vendor-referrals') {
+      fetchReferralOverview();
+      fetchReferralTransactions();
     }
   }, [
     activeTab,
@@ -186,7 +290,43 @@ export const SuperAdminCommissions = () => {
     deliveryStatusFilter,
     settlementStatusFilter,
     settlementStatusTab,
+    refPage,
+    refStatusFilter,
   ]);
+
+  const handleConfirmReferralPayout = async () => {
+    if (!selectedRefCommission || !refPayoutRefInput.trim()) return;
+    try {
+      setRefPayoutSubmitting(true);
+      setActionError('');
+      await api.post(`/super-admin/referral-commissions/${selectedRefCommission._id}/payout`, {
+        payoutReference: refPayoutRefInput.trim(),
+        notes: refPayoutNotesInput.trim(),
+      });
+      setActionSuccess(`Referral commission payout recorded successfully (Ref: ${refPayoutRefInput.trim()})`);
+      setRefPayoutModalOpen(false);
+      setSelectedRefCommission(null);
+      setRefPayoutRefInput('');
+      setRefPayoutNotesInput('');
+      fetchReferralOverview();
+      fetchReferralTransactions();
+      setTimeout(() => setActionSuccess(''), 4000);
+    } catch (err) {
+      console.error('Failed to disburse referral commission:', err);
+      setActionError(err.response?.data?.message || 'Failed to process referral commission payout');
+    } finally {
+      setRefPayoutSubmitting(false);
+    }
+  };
+
+  const handleExportReferralsCsv = () => {
+    const params = new URLSearchParams({ range: dateRange });
+    if (dateRange === 'CUSTOM') {
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+    }
+    window.open(`/api/super-admin/referral-commissions/export?${params.toString()}`, '_blank');
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -353,103 +493,103 @@ export const SuperAdminCommissions = () => {
         </div>
       )}
 
-      {/* 7 Summary KPI Cards */}
+      {/* 8 Summary KPI Cards (Financial Overview) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Vendor Product Sales */}
+        {/* Card 1: Total Verified Customer Payments */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Vendor Product Sales
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Verified Customer Payments
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-slate-900">
+            ₹{Number(metrics.totalVerifiedCustomerPayments || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <span className="text-[11px] text-slate-500 mt-1 block">
+            Centralized platform merchant collections
+          </span>
+        </div>
+
+        {/* Card 2: Total Eligible Product Sales */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Total Eligible Product Sales
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <Store className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-extrabold text-slate-900">
-            ₹{Number(metrics.totalVendorProductSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            ₹{Number(metrics.totalVendorProductSales || metrics.totalEligibleProductSales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-slate-500 mt-1 block">
-            Qualifying gross sales of vendor-owned products
+            Gross sales of vendor-owned products
           </span>
         </div>
 
-        {/* Card 2: Total Commission Earned */}
+        {/* Card 3: Total Commission Earned (5%) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs ring-1 ring-emerald-500/10">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-              Total Commission Earned (5%)
+              Total Platform Commission (5%)
             </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Percent className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-extrabold text-emerald-700">
-            ₹{Number(metrics.totalCommissionEarned || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            ₹{Number(metrics.totalCommissionEarned || metrics.totalPlatformCommissionEarned || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-emerald-600/90 mt-1 block font-medium">
             5% recognized revenue from delivered orders
           </span>
         </div>
 
-        {/* Card 3: Commission Pending Delivery */}
+        {/* Card 4: Pending Vendor Proceeds */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
-              Commission Pending Delivery
+              Pending Vendor Proceeds
             </span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-extrabold text-amber-700">
-            ₹{Number(metrics.commissionPendingDelivery || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            ₹{Number(metrics.pendingVendorProceeds || metrics.commissionPendingDelivery || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-amber-600/90 mt-1 block font-medium">
-            Awaiting order delivery confirmation
+            Pending delivery & 7-day holding period
           </span>
         </div>
 
-        {/* Card 4: Commission Eligible for Settlement */}
+        {/* Card 5: Amount Eligible for Payout */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-              Eligible for Settlement
+              Amount Eligible for Payout
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-extrabold text-blue-700">
-            ₹{Number(metrics.commissionEligibleForSettlement || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            ₹{Number(metrics.amountEligibleForPayout || metrics.totalVendorPayables || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-blue-600/90 mt-1 block font-medium">
-            Delivered orders qualified for platform ledger
+            7-day holding satisfied, ready for disbursement
           </span>
         </div>
 
-        {/* Card 5: Total Vendor Payables */}
+        {/* Card 6: Completed Vendor Payouts */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Total Vendor Payables (95%)
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-extrabold text-purple-900">
-            ₹{Number(metrics.totalVendorPayables || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
-            Net 95% payable balance to vendors for delivered items
-          </span>
-        </div>
-
-        {/* Card 6: Total Vendor Payouts Completed */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Total Vendor Payouts Completed
+              Completed Vendor Payouts
             </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
@@ -459,15 +599,33 @@ export const SuperAdminCommissions = () => {
             ₹{Number(metrics.totalVendorPayoutsCompleted || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-slate-500 mt-1 block">
-            Disbursed settlements to vendor bank accounts
+            Confirmed payouts to vendor bank accounts
           </span>
         </div>
 
-        {/* Card 7: Total Refunds & Commission Reversals */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs sm:col-span-2">
+        {/* Card 7: Failed or Held Payouts */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
-              Total Refunds & Commission Reversals
+              Failed or Held Payouts
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-rose-700">
+            ₹{Number(metrics.failedOrHeldPayouts || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <span className="text-[11px] text-rose-600/90 mt-1 block font-medium">
+            Suspended due to dispute, freeze or failure
+          </span>
+        </div>
+
+        {/* Card 8: Total Refunds & Commission Reversals */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-rose-700 uppercase tracking-wider">
+              Refunds & Reversals
             </span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <RotateCcw className="w-4 h-4" />
@@ -477,7 +635,7 @@ export const SuperAdminCommissions = () => {
             ₹{Number(metrics.totalRefundsReversals || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <span className="text-[11px] text-rose-600/90 mt-1 block font-medium">
-            Reversed orders and cancelled line items (zero platform commission retained)
+            Cancelled & refunded lines (zero commission kept)
           </span>
         </div>
       </div>
@@ -514,6 +672,27 @@ export const SuperAdminCommissions = () => {
             }`}
           >
             Vendor-wise Commission Summary
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`pb-3 text-sm font-bold border-b-2 transition-colors ${
+              activeTab === 'products'
+                ? 'border-[#ED1C2E] text-[#ED1C2E]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Product-wise Commission Breakdown
+          </button>
+          <button
+            onClick={() => setActiveTab('vendor-referrals')}
+            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === 'vendor-referrals'
+                ? 'border-[#ED1C2E] text-[#ED1C2E]'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>3% Vendor Referral Commission</span>
           </button>
         </nav>
       </div>
@@ -921,7 +1100,372 @@ export const SuperAdminCommissions = () => {
         </div>
       )}
 
-      {/* Payout Modal */}
+      {/* TAB 4: Product-wise Commission Breakdown */}
+      {activeTab === 'products' && (
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Product Commission Performance</h3>
+              <p className="text-xs text-slate-500">
+                5% platform commission and 95% vendor proceeds breakdown for every vendor product sold
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+              {productSummaries.length} Products
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50/75 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4">Product</th>
+                  <th className="py-3 px-4">Vendor</th>
+                  <th className="py-3 px-4 text-center">Units Sold</th>
+                  <th className="py-3 px-4 text-right">Unit Price</th>
+                  <th className="py-3 px-4 text-right">Gross Sales</th>
+                  <th className="py-3 px-4 text-center">Comm. Rate</th>
+                  <th className="py-3 px-4 text-right">5% Platform Comm.</th>
+                  <th className="py-3 px-4 text-right">95% Vendor Proceeds</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {productSummaries.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="py-8 text-center text-slate-400">
+                      No vendor product commission records found for this period.
+                    </td>
+                  </tr>
+                ) : (
+                  productSummaries.map((p) => (
+                    <tr key={p.productId} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          {p.image ? (
+                            <img
+                              src={p.image}
+                              alt={p.productName}
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = 'https://placehold.co/80x80/f1f5f9/94a3b8?text=Product';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                              <Package className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900 truncate max-w-xs">{p.productName}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">SKU: {p.sku}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-semibold text-slate-800">{p.vendorName}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center font-bold text-slate-800">{p.totalUnitsSold}</td>
+                      <td className="py-3 px-4 text-right font-medium text-slate-700">
+                        ₹{Number(p.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                        ₹{Number(p.grossSales).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
+                          5%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-rose-600">
+                        ₹{Number(p.platformCommission).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-emerald-700">
+                        ₹{Number(p.vendorProceeds).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: 3% Direct Vendor Referral Commission Management */}
+      {activeTab === 'vendor-referrals' && (
+        <div className="space-y-6">
+          {/* Informational Policy Banner */}
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 border border-emerald-200/90 shadow-xs flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="text-xs text-slate-700 leading-relaxed space-y-1">
+                <strong className="text-emerald-950 font-bold block text-sm">
+                  Super Admin: Direct Vendor Referral Commission Management (3%)
+                </strong>
+                <p>
+                  Direct vendor referral commissions are <strong>completely separate from the platform's 5% Super Admin commission</strong>.
+                  When a vendor sells a product, 5% is allocated to the Super Admin platform, 3% is allocated to the vendor's direct referrer (if present),
+                  and the remaining 92% is allocated to the selling vendor. Referral commission payouts are strictly locked during the <strong>7-day holding period</strong> following confirmed delivery.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleExportReferralsCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors shrink-0 shadow-xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export Referrals CSV
+            </button>
+          </div>
+
+          {/* Referral KPI Overview Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs ring-1 ring-emerald-500/10">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
+                  Total Referral Accrued
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Percent className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-emerald-700">
+                ₹{Number(refOverview.totalReferralCommissions || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[11px] text-emerald-600/90 mt-1 block font-medium">
+                Accrued platform-wide at 3%
+              </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">
+                  In 7-Day Hold Lock
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-purple-700">
+                ₹{Number(refOverview.onHold7Days || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[11px] text-purple-600/80 mt-1 block">
+                Delivered orders within 7-day lock
+              </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                  Eligible for Payout
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-blue-700">
+                ₹{Number(refOverview.eligibleForPayout || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[11px] text-blue-600/80 mt-1 block">
+                Hold period elapsed, ready for release
+              </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Total Paid Out
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-slate-900">
+                ₹{Number(refOverview.totalPaidOut || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Settled & released payouts
+              </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Active Referral Pairs
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-extrabold text-indigo-700">
+                {refOverview.totalReferralPairs || 0}
+              </div>
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Vendor A → Vendor B relationships
+              </span>
+            </div>
+          </div>
+
+          {/* Referral Ledger Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden space-y-4">
+            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Direct Vendor Referral Commissions Ledger</h3>
+                <p className="text-xs text-slate-500">
+                  Full lineage and release actions for 3% referral commissions.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Status:</span>
+                <select
+                  value={refStatusFilter}
+                  onChange={(e) => setRefStatusFilter(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 text-slate-700"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ELIGIBLE">Eligible for Payout</option>
+                  <option value="PAID">Paid Out</option>
+                  <option value="PENDING_DELIVERY">Awaiting Delivery</option>
+                  <option value="ON_HOLD">On Hold</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Order / Suborder #</th>
+                    <th className="py-3 px-4">Referrer Vendor (Beneficiary)</th>
+                    <th className="py-3 px-4">Selling Vendor</th>
+                    <th className="py-3 px-4 text-right">Eligible Sale (₹)</th>
+                    <th className="py-3 px-4 text-center">Rate</th>
+                    <th className="py-3 px-4 text-right font-bold text-emerald-700">3% Commission (₹)</th>
+                    <th className="py-3 px-4">Delivered Date</th>
+                    <th className="py-3 px-4">7-Day Hold Release Date</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-center">Action / Payout Reference</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-700">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="10" className="py-10 text-center text-slate-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-600" />
+                        Loading referral commission transactions...
+                      </td>
+                    </tr>
+                  ) : refTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" className="py-10 text-center text-slate-400">
+                        No referral commission transactions found for this period.
+                      </td>
+                    </tr>
+                  ) : (
+                    refTransactions.map((tx) => (
+                      <tr key={tx._id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3 px-4 font-mono font-medium text-slate-900 whitespace-nowrap">
+                          <div>{tx.orderNumber}</div>
+                          {tx.suborderNumber && tx.suborderNumber !== 'N/A' && (
+                            <div className="text-[10px] text-slate-400">{tx.suborderNumber}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">
+                          {tx.referrerVendor?.storeName || 'Referrer Vendor'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 whitespace-nowrap">
+                          {tx.sellingVendor?.storeName || 'Selling Vendor'}
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-slate-900">
+                          ₹{Number(tx.eligibleSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap font-bold text-emerald-700">
+                          {tx.commissionRate || 3}%
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap font-extrabold text-emerald-700 text-sm">
+                          ₹{Number(tx.commissionAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap text-slate-500">
+                          {tx.deliveredAt ? new Date(tx.deliveredAt).toLocaleDateString('en-IN') : 'Pending'}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap text-slate-500">
+                          {tx.eligibleAt ? (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-purple-500" />
+                              <span>{new Date(tx.eligibleAt).toLocaleDateString('en-IN')}</span>
+                            </div>
+                          ) : (
+                            'Pending Delivery'
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {tx.settlementStatus === 'PAID' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                              <CheckCircle2 className="w-3 h-3" /> Paid Out
+                            </span>
+                          ) : tx.isLockedInHold ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                              <Lock className="w-3 h-3" /> 7-Day Hold Active
+                            </span>
+                          ) : tx.canPayout ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                              <CheckCircle2 className="w-3 h-3" /> Ready for Payout
+                            </span>
+                          ) : tx.settlementStatus === 'PENDING_DELIVERY' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                              <Clock className="w-3 h-3" /> Awaiting Delivery
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                              {tx.settlementStatus}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {tx.settlementStatus === 'PAID' ? (
+                            <span className="font-mono text-[11px] text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded-md">
+                              {tx.payoutReference || 'SETTLED'}
+                            </span>
+                          ) : tx.canPayout ? (
+                            <button
+                              onClick={() => {
+                                setSelectedRefCommission(tx);
+                                setRefPayoutRefInput(`UTR-${Date.now().toString().slice(-6)}`);
+                                setRefPayoutModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-colors"
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              Release Payout
+                            </button>
+                          ) : tx.isLockedInHold ? (
+                            <span className="text-[11px] text-purple-700 font-medium flex items-center justify-center gap-1">
+                              <Lock className="w-3 h-3" /> Locked
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Locked until delivery</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
+              <span>Showing <strong>{refTransactions.length}</strong> of <strong>{refPagination.total}</strong> referral transactions.</span>
+              <span className="text-slate-400">Referral commissions unlock automatically 7 days after customer delivery.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payout Modal for 95% Vendor Proceeds */}
       {payoutModalOpen && selectedSettlement && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
@@ -996,6 +1540,95 @@ export const SuperAdminCommissions = () => {
                 className="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-colors shadow-xs"
               >
                 {payoutSubmitting ? 'Recording Payout...' : 'Confirm Disbursed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payout Modal for 3% Direct Vendor Referral Commission */}
+      {refPayoutModalOpen && selectedRefCommission && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 text-base">Release Referral Commission Payout</h3>
+              </div>
+              <button
+                onClick={() => setRefPayoutModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-emerald-700 block">Beneficiary (Referrer Vendor)</span>
+                    <strong className="text-sm text-emerald-950">
+                      {selectedRefCommission.referrerVendor?.storeName || 'Referrer Vendor'}
+                    </strong>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-emerald-700 block">3% Commission</span>
+                    <strong className="text-lg text-emerald-700">₹{selectedRefCommission.commissionAmount}</strong>
+                  </div>
+                </div>
+                <div className="text-[11px] text-emerald-800 border-t border-emerald-200/60 pt-1.5 flex justify-between">
+                  <span>Selling Vendor: <strong>{selectedRefCommission.sellingVendor?.storeName}</strong></span>
+                  <span>Order: <strong>{selectedRefCommission.orderNumber}</strong></span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Payout Reference / UTR Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={refPayoutRefInput}
+                  onChange={(e) => setRefPayoutRefInput(e.target.value)}
+                  placeholder="e.g. UTR-20261027-9912 or Bank Ref ID"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Reconciliation Notes
+                </label>
+                <textarea
+                  rows="2"
+                  value={refPayoutNotesInput}
+                  onChange={(e) => setRefPayoutNotesInput(e.target.value)}
+                  placeholder="Optional bank transfer notes or ledger references..."
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                Notice: The 7-day holding period has elapsed. Confirming this release marks the referral commission as <strong>PAID</strong>, writes to the vendor ledger, and seals the audit record.
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRefPayoutModalOpen(false)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={refPayoutSubmitting || !refPayoutRefInput.trim()}
+                onClick={handleConfirmReferralPayout}
+                className="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-colors shadow-xs"
+              >
+                {refPayoutSubmitting ? 'Processing Payout...' : 'Confirm Disbursed'}
               </button>
             </div>
           </div>

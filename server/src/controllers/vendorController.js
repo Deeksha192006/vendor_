@@ -49,6 +49,19 @@ export const getVendorDashboard = asyncWrapper(async (req, res) => {
 export const createVendorProduct = asyncWrapper(async (req, res) => {
   const vendor = await vendorService.checkVendorEligibility(req.user._id);
   const product = await productService.createProduct(vendor._id, req.body);
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'PRODUCT_CREATED',
+    description: `Vendor added new product: "${product.name}" (SKU: ${product.sku || 'N/A'}, Price: ₹${product.price})`,
+    metadata: { productId: product._id, sku: product.sku, price: product.price, stock: product.stock },
+    ipAddress: req.ip,
+  });
+
   return res.status(201).json(new ApiResponse(201, { product }, 'Vendor product created'));
 });
 
@@ -96,12 +109,38 @@ export const getVendorProductById = asyncWrapper(async (req, res) => {
 export const updateVendorProduct = asyncWrapper(async (req, res) => {
   const vendor = await vendorService.checkVendorEligibility(req.user._id);
   const product = await productService.updateProduct(req.params.id, vendor._id, req.body);
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'PRODUCT_UPDATED',
+    description: `Vendor updated product: "${product.name}"`,
+    metadata: { productId: product._id, price: product.price, stock: product.stock },
+    ipAddress: req.ip,
+  });
+
   return res.status(200).json(new ApiResponse(200, { product }, 'Vendor product updated'));
 });
 
 export const deleteVendorProduct = asyncWrapper(async (req, res) => {
   const vendor = await vendorService.checkVendorEligibility(req.user._id);
   const product = await productService.softDeleteProduct(req.params.id, vendor._id);
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'PRODUCT_STATUS_CHANGED',
+    description: `Vendor deleted product: "${product.name}"`,
+    metadata: { productId: product._id, isDeleted: true },
+    ipAddress: req.ip,
+  });
+
   return res.status(200).json(new ApiResponse(200, { product }, 'Vendor product deleted'));
 });
 
@@ -109,6 +148,19 @@ export const changeVendorProductStatus = asyncWrapper(async (req, res) => {
   const vendor = await vendorService.checkVendorEligibility(req.user._id);
   const { status } = req.body;
   const product = await productService.changeVendorProductStatus(req.params.id, vendor._id, status);
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'PRODUCT_STATUS_CHANGED',
+    description: `Vendor changed status of product "${product.name}" to ${status}`,
+    metadata: { productId: product._id, status },
+    ipAddress: req.ip,
+  });
+
   return res.status(200).json(new ApiResponse(200, { product }, `Product status changed to ${status}`));
 });
 

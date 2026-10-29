@@ -117,6 +117,13 @@ const authSlice = createSlice({
         state.user.superCoinBalance = action.payload;
       }
     },
+    setAuthUser: (state, action) => {
+      state.user = action.payload?.user || action.payload;
+      state.isAuthenticated = true;
+      if (action.payload?.accessToken) {
+        state.accessToken = action.payload.accessToken;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -199,5 +206,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, updateCoinBalance, updateSuperCoins } = authSlice.actions;
+export const { clearAuthError, updateCoinBalance, updateSuperCoins, setAuthUser } = authSlice.actions;
 export default authSlice.reducer;

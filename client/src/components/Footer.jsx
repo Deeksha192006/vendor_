@@ -140,24 +140,48 @@ export const Footer = () => {
             <h4 className="font-black text-[#30358F] text-xs uppercase tracking-wider mb-3.5">Policies & Terms</h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link to="/customer/help?tab=shipping" className="hover:text-[#ED1C2E] transition">
-                  Shipping and Delivery
+                <Link to="/terms/customer" className="hover:text-[#ED1C2E] transition">
+                  Customer Terms &amp; Conditions
                 </Link>
               </li>
               <li>
-                <Link to="/customer/help?tab=returns" className="hover:text-[#ED1C2E] transition">
-                  Returns and Refunds
+                <Link to="/terms/vendor" className="hover:text-[#ED1C2E] transition">
+                  Vendor Terms &amp; Conditions
                 </Link>
               </li>
               <li>
-                <Link to="/customer/help?tab=privacy" className="hover:text-[#ED1C2E] transition">
+                <Link to="/privacy-policy" className="hover:text-[#ED1C2E] transition">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link to="/customer/help?tab=terms" className="hover:text-[#ED1C2E] transition">
-                  Terms and Conditions
+                <Link to="/cookie-policy" className="hover:text-[#ED1C2E] transition">
+                  Cookie Policy
                 </Link>
+              </li>
+              <li>
+                <Link to="/refund-policy" className="hover:text-[#ED1C2E] transition">
+                  Refund and Cancellation Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/shipping-policy" className="hover:text-[#ED1C2E] transition">
+                  Shipping and Delivery Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/grievance-policy" className="hover:text-[#ED1C2E] transition">
+                  Grievance &amp; Redressal Policy
+                </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => window.openCookiePreferences && window.openCookiePreferences()}
+                  className="hover:text-[#ED1C2E] transition text-left cursor-pointer flex items-center gap-1 text-slate-500 hover:underline"
+                >
+                  <span>Cookie Preferences</span>
+                </button>
               </li>
             </ul>
           </div>
@@ -165,13 +189,31 @@ export const Footer = () => {
 
         {/* 3. Bottom Copyright & Trust Bar */}
         <div className="pt-8 mt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400">
-          <p>© {new Date().getFullYear()} BAAPOO MART Inc. BUY INDIAN • BUILD INDIA. All rights reserved.</p>
-          <div className="flex items-center gap-4">
+          <p>© {new Date().getFullYear()} BAAPOO MART. BUY INDIAN • BUILD INDIA. All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link to="/terms/customer" className="hover:text-slate-600">Terms</Link>
+            <span>•</span>
+            <Link to="/privacy-policy" className="hover:text-slate-600">Privacy</Link>
+            <span>•</span>
+            <Link to="/refund-policy" className="hover:text-slate-600">Refunds</Link>
+            <span>•</span>
+            <Link to="/shipping-policy" className="hover:text-slate-600">Shipping</Link>
+            <span>•</span>
+            <Link to="/grievance-policy" className="hover:text-slate-600">Grievances</Link>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => window.openCookiePreferences && window.openCookiePreferences()}
+              className="hover:text-slate-600 cursor-pointer underline"
+            >
+              Cookie Choices
+            </button>
+            <span>•</span>
             <span className="flex items-center gap-1 font-bold text-[#30358F]">
-              <span>🇮🇳</span> Proudly Built For India
+              <span>Proudly Built For India</span>
             </span>
             <span>•</span>
-            <span>100% Encrypted Transactions</span>
+            <span>Verified Secure Payments</span>
           </div>
         </div>
       </div>

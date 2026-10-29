@@ -47,6 +47,7 @@ export const Register = () => {
     pincode: '',
     latitude: null,
     longitude: null,
+    termsAccepted: false,
   });
 
   const [validationError, setValidationError] = useState('');
@@ -153,6 +154,11 @@ export const Register = () => {
       return;
     }
 
+    if (!formData.termsAccepted) {
+      setValidationError('You must read and agree to the Terms & Conditions and Privacy Policy to register.');
+      return;
+    }
+
     const fullName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
     const payload = {
       name: fullName || formData.firstName.trim(),
@@ -163,6 +169,8 @@ export const Register = () => {
       password: formData.password,
       referralCode: formData.referralCode.trim() || undefined,
       shopQrToken: formData.shopQrToken || undefined,
+      termsAccepted: true,
+      termsVersion: '1.0',
     };
 
     if (formData.addressLine || formData.city || formData.pincode) {
@@ -479,12 +487,54 @@ export const Register = () => {
             </AnimatePresence>
           </div>
 
+          {/* Required Terms & Conditions and Privacy Policy Acceptance */}
+          <div className="pt-2">
+            <label className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-colors cursor-pointer ${
+              formData.termsAccepted
+                ? 'bg-blue-50/40 border-blue-200'
+                : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+            }`}>
+              <input
+                type="checkbox"
+                name="termsAccepted"
+                required
+                checked={formData.termsAccepted}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, termsAccepted: e.target.checked }));
+                  if (e.target.checked && validationError) setValidationError('');
+                }}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-[#30358F] focus:ring-blue-500 shrink-0 cursor-pointer"
+              />
+              <span className="text-xs text-slate-700 leading-relaxed font-medium">
+                I have read and agree to the applicable{' '}
+                <Link
+                  to="/terms/customer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#30358F] font-bold underline hover:text-[#ED1C2E]"
+                >
+                  Terms &amp; Conditions
+                </Link>{' '}
+                and{' '}
+                <Link
+                  to="/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#30358F] font-bold underline hover:text-[#ED1C2E]"
+                >
+                  Privacy Policy
+                </Link>
+                . <span className="text-rose-500 font-bold">*</span>
+              </span>
+            </label>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
             type="submit"
-            disabled={isLoading}
-            className="w-full mt-3 py-3.5 rounded-xl bg-[#ED1C2E] hover:bg-[#D91425] text-white font-black text-xs uppercase tracking-wider shadow-md shadow-red-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            disabled={isLoading || !formData.termsAccepted}
+            className="w-full mt-3 py-3.5 rounded-xl bg-[#ED1C2E] hover:bg-[#D91425] text-white font-black text-xs uppercase tracking-wider shadow-md shadow-red-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

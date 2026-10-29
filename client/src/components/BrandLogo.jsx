@@ -28,7 +28,7 @@ export const BrandLogo = ({
     <div className={`inline-flex items-center gap-2.5 transition-transform ${clickable ? 'group hover:opacity-95' : ''} ${className}`}>
       <img
         src="/images/baapoo-mart-logo.png"
-        alt="BAAPOO MART — Buy Indian, Build India"
+        alt="BAAPOO MART: Buy Indian, Build India"
         className={`${selectedSize} w-auto object-contain max-w-full drop-shadow-xs select-none ${imgClassName}`}
         loading="eager"
       />

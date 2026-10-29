@@ -104,4 +104,12 @@ import {
 router.get('/daily-sales', authorize('VENDOR', 'ADMIN', 'SUPER_ADMIN'), getVendorDailySales);
 router.get('/daily-sales/export', authorize('VENDOR', 'ADMIN', 'SUPER_ADMIN'), exportDailySalesCsv);
 
+// 3% Direct Vendor Referral Commission
+import {
+  getVendorReferralSummary,
+  getVendorReferralTransactions,
+} from '../controllers/vendorReferralCommissionController.js';
+router.get('/referral-commissions/summary', authorize('VENDOR', 'ADMIN', 'SUPER_ADMIN'), getVendorReferralSummary);
+router.get('/referral-commissions/transactions', authorize('VENDOR', 'ADMIN', 'SUPER_ADMIN'), getVendorReferralTransactions);
+
 export default router;

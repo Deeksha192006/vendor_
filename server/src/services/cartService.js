@@ -103,9 +103,10 @@ export const cartService = {
 
     const subtotal = Object.values(groupedItems).reduce((sum, group) => sum + group.vendorSubtotal, 0);
 
-    const { Settings } = await import('../models/Settings.js');
-    const coinRateSetting = await Settings.findOne({ key: 'FAIR_COINS_PER_RUPEE' });
-    const coinsPerRupee = coinRateSetting?.value ? Number(coinRateSetting.value) : 10;
+    const { FAIR_COIN_CONVERSION } = await import('../constants/coinConstants.js');
+    const coinsPerRupee = FAIR_COIN_CONVERSION.COINS_PER_RUPEE;
+    const { fairCoinService } = await import('./fairCoinService.js');
+    const maxCoinsPerPurchase = await fairCoinService.getMaxCoinsPerPurchase();
 
     return {
       _id: cart._id,
@@ -115,6 +116,7 @@ export const cartService = {
       coinDiscountAmount: cart.coinDiscountAmount,
       fairCoinsUsed: cart.fairCoinsUsed,
       coinsPerRupee,
+      maxCoinsPerPurchase,
       subtotal,
       total: Math.max(0, subtotal - cart.discountAmount - cart.coinDiscountAmount),
       items: cart.items,

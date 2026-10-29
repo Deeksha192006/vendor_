@@ -105,7 +105,7 @@ export const SuperAdminInventory = () => {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md">
+          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#30358F] to-[#1E2356] text-white shadow-md">
             <Boxes className="w-6 h-6" />
           </div>
           <div>

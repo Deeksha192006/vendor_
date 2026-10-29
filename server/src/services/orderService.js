@@ -4,6 +4,7 @@ import { VendorOrder } from '../models/VendorOrder.js';
 import { Product } from '../models/Product.js';
 import { Cart } from '../models/Cart.js';
 import { Vendor } from '../models/Vendor.js';
+import { User } from '../models/User.js';
 import { UserAddress } from '../models/UserAddress.js';
 import { StockTransaction } from '../models/StockTransaction.js';
 import { CustomerShopAttribution } from '../models/CustomerShopAttribution.js';
@@ -22,6 +23,40 @@ import { platformCommissionService } from './platformCommissionService.js';
 
 export const orderService = {
   async createOrder(userId, { shippingAddressId, shippingAddress, paymentMethod = 'RAZORPAY', fairCoinsToRedeem = 0, selectedItemKeys = [] }) {
+    // 0. Validate Fair Coins redemption limit and user ownership
+    const coinsNum = Number(fairCoinsToRedeem) || 0;
+    if (isNaN(coinsNum) || coinsNum < 0 || !Number.isInteger(coinsNum)) {
+      throw new ApiError(
+        400,
+        'Invalid Fair Coins amount. Must be a non-negative whole number.',
+        ERROR_CODES.BAD_REQUEST
+      );
+    }
+
+    if (coinsNum > 0) {
+      const userDoc = await User.findById(userId).select('fairCoinBalance');
+      if (!userDoc) {
+        throw new ApiError(404, 'User not found', ERROR_CODES.NOT_FOUND);
+      }
+      const availableBalance = userDoc.fairCoinBalance || 0;
+      if (coinsNum > availableBalance) {
+        throw new ApiError(
+          400,
+          `You cannot redeem more than your available balance of ${availableBalance} Fair Coins.`,
+          ERROR_CODES.BAD_REQUEST
+        );
+      }
+
+      const maxLimit = await fairCoinService.getMaxCoinsPerPurchase();
+      if (coinsNum > maxLimit) {
+        throw new ApiError(
+          400,
+          `You can use only ${maxLimit} Fair Coins per purchase. Please reduce the amount and try again.`,
+          ERROR_CODES.BAD_REQUEST
+        );
+      }
+    }
+
     // 1. Get raw cart
     const cart = await Cart.findOne({ userId }).populate('items.productId');
     if (!cart || cart.items.length === 0) {
@@ -171,6 +206,25 @@ export const orderService = {
         itemsByVendor[vendorIdStr].vendorSubtotal += lineTotal;
       }
 
+      // Calculate fixed 5% platform commission per eligible product line (+ 3% direct vendor referral if applicable)
+      for (const [vId, vGroup] of Object.entries(itemsByVendor)) {
+        if (vId === 'SUPER_ADMIN') continue;
+        const directReferrerVendor = await platformCommissionService.getDirectReferrerVendor(vId, session);
+        const hasReferrer = Boolean(directReferrerVendor);
+        vGroup.items.forEach((item) => {
+          const lineCalc = platformCommissionService.calculateLine(item.unitPrice || item.price, item.quantity || 1, hasReferrer);
+          item.commissionRate = 5;
+          item.platformCommission = lineCalc.platformCommission;
+          item.referrerVendorId = directReferrerVendor ? directReferrerVendor._id : null;
+          item.referralCommissionRate = lineCalc.referralRate;
+          item.referralCommission = lineCalc.referralCommission;
+          item.vendorShare = lineCalc.vendorProceeds;
+          if (hasReferrer) {
+            item.referralSettlementStatus = 'PENDING_DELIVERY';
+          }
+        });
+      }
+
       // 4. Handle Coupon discount verification
       let discountTotal = 0;
       let targetCouponId = null;
@@ -194,11 +248,10 @@ export const orderService = {
 
       // 5. Handle Fair Coins redemption discount
       let coinDiscount = 0;
-      if (fairCoinsToRedeem > 0) {
-        const { Settings } = await import('../models/Settings.js');
-        const coinRateSetting = await Settings.findOne({ key: 'FAIR_COINS_PER_RUPEE' });
-        const coinsPerRupee = coinRateSetting?.value ? Number(coinRateSetting.value) : 10;
-        coinDiscount = Math.floor(fairCoinsToRedeem / (coinsPerRupee || 10));
+      if (coinsNum > 0) {
+        const { FAIR_COIN_CONVERSION } = await import('../constants/coinConstants.js');
+        const coinsPerRupee = FAIR_COIN_CONVERSION.COINS_PER_RUPEE; // 10
+        coinDiscount = Math.floor(coinsNum / coinsPerRupee);
       }
 
       const shippingTotal = 0; // Future module compatibility
@@ -235,7 +288,7 @@ export const orderService = {
         discount: discountTotal,
         discountTotal,
         coinDiscount,
-        fairCoinsUsed: fairCoinsToRedeem,
+        fairCoinsUsed: coinsNum,
         shippingFee: shippingTotal,
         shippingTotal,
         tax: taxTotal,
@@ -259,14 +312,14 @@ export const orderService = {
           await couponService.incrementUsageAtomic(targetCouponId);
         }
 
-        if (fairCoinsToRedeem > 0) {
+        if (coinsNum > 0) {
           // Also might need session
           await fairCoinService.debitCoins({
             userId,
-            amount: fairCoinsToRedeem,
+            amount: coinsNum,
             type: 'DEBIT',
             source: 'ORDER_CHECKOUT_REDEMPTION',
-            description: `Redeemed ${fairCoinsToRedeem} Fair Coins for order discount`,
+            description: `Redeemed ${coinsNum} Fair Coins for order discount`,
             referenceId: orderNumber,
           });
         }
@@ -307,9 +360,16 @@ export const orderService = {
             continue;
           }
           
-          const commissionRate = 5; // Fixed 5% Platform Commission
-          const platformCommission = Number((vData.vendorSubtotal * 0.05).toFixed(2));
-          const vendorEarning = Number((vData.vendorSubtotal - platformCommission).toFixed(2));
+          const directReferrerVendor = await platformCommissionService.getDirectReferrerVendor(vId, session);
+          const hasReferrer = Boolean(directReferrerVendor);
+          const vendorTotalUnits = vData.items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+          const { platformCommission, referralRate, referralCommission, vendorShare } = platformCommissionService.calculate(
+            vData.vendorSubtotal,
+            vendorTotalUnits,
+            hasReferrer
+          );
+          const commissionRate = 5;
+          const vendorEarning = vendorShare;
           
           const suborderNum = `${publicOrderId}-V${String(vendorIndex).padStart(2, '0')}`;
 
@@ -328,7 +388,13 @@ export const orderService = {
             discountTotal: 0,
             shippingTotal: 0,
             grandTotal: vData.vendorSubtotal,
+            commissionRate,
+            eligibleItemCount: vendorTotalUnits,
             platformCommission,
+            referrerVendorId: directReferrerVendor ? directReferrerVendor._id : null,
+            referralCommissionRate: referralRate,
+            referralCommission,
+            referralSettlementStatus: hasReferrer ? 'PENDING_DELIVERY' : 'NONE',
             vendorEarning,
             status: 'CONFIRMED',
             settlementStatus: 'PENDING_DELIVERY',

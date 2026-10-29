@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#2563eb"/>
-  <path d="M10 11V9a6 6 0 1 1 12 0v2h2a2 2 0 0 1 2 2l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 13a2 2 0 0 1 2-2h2zm2 0h8V9a4 4 0 1 0-8 0v2z" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#ED1C2E"/>
+  <!-- Marketplace shopping bag silhouette with Indian motif -->
+  <path d="M20 23C20 16.3726 25.3726 11 32 11C38.6274 11 44 16.3726 44 23V25H48C49.6569 25 51 26.3431 51 28L48 51C48 52.6569 46.6569 54 45 54H19C17.3431 54 16 52.6569 16 51L13 28C13 26.3431 14.3431 25 16 25H20V23ZM24 25H40V23C40 18.5817 36.4183 15 32 15C27.5817 15 24 18.5817 24 23V25Z" fill="#FFFFFF"/>
+  <!-- Signature Indian Tri-color saffron accent pip -->
+  <circle cx="32" cy="37" r="4.5" fill="#F7941D"/>
 </svg>

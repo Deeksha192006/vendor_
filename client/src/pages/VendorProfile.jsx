@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Loader2, Store, MapPin, FileText, CheckCircle, Clock, AlertCircle, RefreshCcw, Landmark, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Loader2, Store, MapPin, FileText, CheckCircle, Clock, AlertCircle, RefreshCcw, Landmark, ShieldCheck, ShieldAlert, UserX, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const VendorProfile = () => {
@@ -12,9 +12,59 @@ export const VendorProfile = () => {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({});
 
+  // Data Deletion States
+  const [deletionRequest, setDeletionRequest] = useState(null);
+  const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [confirmUnderstood, setConfirmUnderstood] = useState(false);
+  const [submittingDeletion, setSubmittingDeletion] = useState(false);
+  const [deletionFeedback, setDeletionFeedback] = useState({ type: '', text: '' });
+
+  const fetchDeletionStatus = async () => {
+    try {
+      const res = await api.get('/users/me/data-deletion-request');
+      if (res.data?.success) {
+        setDeletionRequest(res.data.data);
+      }
+    } catch (err) {
+      // Ignore if none
+    }
+  };
+
+  const handleRequestDeletion = async (e) => {
+    e.preventDefault();
+    if (!confirmUnderstood) return;
+
+    setSubmittingDeletion(true);
+    setDeletionFeedback({ type: '', text: '' });
+
+    try {
+      const res = await api.post('/users/me/data-deletion-request', {
+        reason: deletionReason.trim() || undefined,
+      });
+
+      if (res.data?.success) {
+        setDeletionFeedback({
+          type: 'success',
+          text: `Request submitted successfully. Reference ID: ${res.data.data.referenceId}`,
+        });
+        setShowDeletionModal(false);
+        fetchDeletionStatus();
+      }
+    } catch (err) {
+      setDeletionFeedback({
+        type: 'error',
+        text: err.response?.data?.message || 'Failed to submit deletion request',
+      });
+    } finally {
+      setSubmittingDeletion(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
     fetchHistory();
+    fetchDeletionStatus();
   }, []);
 
   const fetchProfile = async () => {
@@ -293,8 +343,169 @@ export const VendorProfile = () => {
               ))}
             </div>
           </div>
+
+          {/* Privacy & Data Rights (Account & Personal Data Deletion) */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <UserX className="w-4 h-4 text-rose-600" />
+                  <span>Privacy &amp; Data Rights (Account &amp; Store Deletion)</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Request closure of your merchant account and sanitization of personal identifiers.
+                </p>
+              </div>
+
+              {deletionRequest && (
+                <span
+                  className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider self-start sm:self-auto ${
+                    deletionRequest.status === 'COMPLETED'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : deletionRequest.status === 'APPROVED'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : deletionRequest.status === 'REJECTED'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  Status: {deletionRequest.status}
+                </span>
+              )}
+            </div>
+
+            {deletionFeedback.text && (
+              <div
+                className={`p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                  deletionFeedback.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200'
+                }`}
+              >
+                {deletionFeedback.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
+                <span>{deletionFeedback.text}</span>
+              </div>
+            )}
+
+            {deletionRequest ? (
+              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 text-xs text-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                  <div>
+                    <span className="text-slate-400 font-medium">Tracking Reference: </span>
+                    <span className="font-mono font-bold text-slate-900">{deletionRequest.referenceId}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-medium">Submitted: </span>
+                    <span className="font-bold text-slate-800">
+                      {new Date(deletionRequest.submittedAt).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-[11px] text-slate-600 leading-relaxed">
+                  <p><strong>Statutory Retention Note:</strong> {deletionRequest.retentionExplanation}</p>
+                  {deletionRequest.adminNotes && (
+                    <p className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <strong>Administrative Feedback:</strong> {deletionRequest.adminNotes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-xs text-slate-600 leading-relaxed bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#30358F]" />
+                    <span>Vendor Account Closure &amp; Data Minimization</span>
+                  </div>
+                  <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-500">
+                    <li><strong>Purged Personal Data:</strong> Personal login credentials, direct contact phone numbers, identity KYC files, and profile avatars are sanitized or purged.</li>
+                    <li><strong>Legally Retained Records:</strong> Pursuant to Indian GST regulations and tax auditing obligations, past order fulfillment invoices, tax credit notes, and vendor payout ledgers are retained for up to 8 years.</li>
+                    <li><strong>Store Access:</strong> Your storefront will be delisted and administrative vendor login access will cease upon request completion.</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletionModal(true)}
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm flex items-center gap-2"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Request Account and Data Deletion</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Modal: Confirmation & Reason */}
+      {showDeletionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-2 text-rose-700 font-black text-sm">
+              <ShieldAlert className="w-5 h-5" />
+              <span>Confirm Merchant Account &amp; Data Deletion Request</span>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+              <p>
+                You are requesting the closure of your vendor account and deletion/anonymization of associated personal information.
+              </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px]">
+                <strong>Statutory Retention Notice:</strong> Tax invoices, GST reports, commission records, and payout ledgers cannot be deleted due to mandatory 8-year statutory compliance requirements under Indian tax laws. Personal identity details and KYC files will be anonymized or purged.
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Optional Reason for Closing Account</label>
+              <textarea
+                value={deletionReason}
+                onChange={(e) => setDeletionReason(e.target.value)}
+                placeholder="Tell us why you wish to close your merchant account (optional)..."
+                rows="3"
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-hidden"
+              />
+            </div>
+
+            <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={confirmUnderstood}
+                onChange={(e) => setConfirmUnderstood(e.target.checked)}
+                className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 mt-0.5"
+              />
+              <span>I understand that this action is irreversible and that my personal details will be sanitized while statutory tax and financial transaction records are legally retained.</span>
+            </label>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t">
+              <button
+                type="button"
+                disabled={submittingDeletion}
+                onClick={() => setShowDeletionModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!confirmUnderstood || submittingDeletion}
+                onClick={handleRequestDeletion}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs transition shadow-sm flex items-center gap-2"
+              >
+                {submittingDeletion && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>Submit Deletion Request</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -30,6 +30,18 @@ export const acceptOrder = asyncWrapper(async (req, res) => {
   suborder.status = 'CONFIRMED';
   await suborder.save();
 
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'ORDER_STATUS_CHANGED',
+    description: `Vendor accepted order #${suborder.subOrderNumber || suborder.publicSuborderId} (Status: CONFIRMED)`,
+    metadata: { orderId: suborder._id, status: 'CONFIRMED' },
+    ipAddress: req.ip,
+  });
+
   return res.status(200).json(new ApiResponse(200, { suborder }, 'Order accepted'));
 });
 
@@ -45,6 +57,18 @@ export const processOrder = asyncWrapper(async (req, res) => {
 
   suborder.status = 'PROCESSING';
   await suborder.save();
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'ORDER_STATUS_CHANGED',
+    description: `Vendor started processing order #${suborder.subOrderNumber || suborder.publicSuborderId}`,
+    metadata: { orderId: suborder._id, status: 'PROCESSING' },
+    ipAddress: req.ip,
+  });
 
   return res.status(200).json(new ApiResponse(200, { suborder }, 'Order processing started'));
 });
@@ -62,6 +86,18 @@ export const packOrder = asyncWrapper(async (req, res) => {
   suborder.status = 'PACKED';
   await suborder.save();
 
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'ORDER_STATUS_CHANGED',
+    description: `Vendor packed order #${suborder.subOrderNumber || suborder.publicSuborderId}`,
+    metadata: { orderId: suborder._id, status: 'PACKED' },
+    ipAddress: req.ip,
+  });
+
   return res.status(200).json(new ApiResponse(200, { suborder }, 'Order packed'));
 });
 
@@ -77,6 +113,18 @@ export const markReadyToShip = asyncWrapper(async (req, res) => {
 
   suborder.status = 'READY_TO_SHIP';
   await suborder.save();
+
+  const { logVendorActivity } = await import('../services/vendorActivityService.js');
+  await logVendorActivity({
+    vendorId: vendor._id,
+    actorId: req.user._id,
+    actorRole: 'VENDOR',
+    actorName: req.user.name,
+    eventType: 'ORDER_STATUS_CHANGED',
+    description: `Vendor marked order #${suborder.subOrderNumber || suborder.publicSuborderId} as READY_TO_SHIP`,
+    metadata: { orderId: suborder._id, status: 'READY_TO_SHIP' },
+    ipAddress: req.ip,
+  });
 
   return res.status(200).json(new ApiResponse(200, { suborder }, 'Order ready to ship'));
 });

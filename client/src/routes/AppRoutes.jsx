@@ -118,12 +118,25 @@ import { FranchiseDashboard } from '../pages/FranchiseDashboard';
 import { ShopkeeperDashboard } from '../pages/ShopkeeperDashboard';
 import { ShopQRCodeManager } from '../pages/ShopQRCodeManager';
 
+// Super Admin Appointed Franchise Vendor Management
+import { SuperAdminFranchiseVendors } from '../pages/super-admin/SuperAdminFranchiseVendors';
+import { SuperAdminFranchiseVendorDetail } from '../pages/super-admin/SuperAdminFranchiseVendorDetail';
+import { SuperAdminFranchiseApplications } from '../pages/super-admin/SuperAdminFranchiseApplications';
+import { SuperAdminFranchiseApplicationDetail } from '../pages/super-admin/SuperAdminFranchiseApplicationDetail';
+import { VendorInvitationPage } from '../pages/VendorInvitationPage';
+
+// Legal & Policy Pages
+import { LegalDocumentView } from '../pages/legal/LegalDocumentView';
+import { SuperAdminLegalDocuments } from '../pages/super-admin/SuperAdminLegalDocuments';
+import { SuperAdminDataDeletions } from '../pages/super-admin/SuperAdminDataDeletions';
+
 export const AppRoutes = () => {
   return (
     <Routes>
       {/* ------------------------------------------------------------- */}
       {/* 1. PUBLIC PORTAL ENTRY POINTS & COMMON AUTH (AuthLayout)       */}
       {/* ------------------------------------------------------------- */}
+      <Route path="/vendor-invitation/:token" element={<VendorInvitationPage />} />
       <Route element={<AuthLayoutWrapper />}>
         <Route path="/login" element={<CustomerLogin />} />
         <Route path="/register" element={<Register />} />
@@ -176,6 +189,9 @@ export const AppRoutes = () => {
         <Route path="daily-sales" element={<CustomerDailyPurchaseReport />} />
         <Route path="help" element={<CustomerHelp />} />
         <Route path="support" element={<CustomerHelp />} />
+        <Route path="terms" element={<LegalDocumentView initialType="CUSTOMER_TERMS" />} />
+        <Route path="privacy" element={<LegalDocumentView initialType="PRIVACY_POLICY" />} />
+        <Route path="cookies" element={<LegalDocumentView initialType="COOKIE_POLICY" />} />
       </Route>
 
       {/* ------------------------------------------------------------- */}
@@ -217,6 +233,9 @@ export const AppRoutes = () => {
         <Route path="referrals" element={<VendorNetworkDashboard />} />
         <Route path="refer" element={<VendorNetworkDashboard />} />
         <Route path="profile" element={<VendorProfile />} />
+        <Route path="terms" element={<LegalDocumentView initialType="VENDOR_TERMS" />} />
+        <Route path="privacy" element={<LegalDocumentView initialType="PRIVACY_POLICY" />} />
+        <Route path="cookies" element={<LegalDocumentView initialType="COOKIE_POLICY" />} />
       </Route>
 
       {/* ------------------------------------------------------------- */}
@@ -243,6 +262,10 @@ export const AppRoutes = () => {
         <Route path="customers" element={<SuperAdminUsers />} />
         <Route path="vendors" element={<AdminVendorList />} />
         <Route path="vendors/:id/review" element={<AdminVendorReview />} />
+        <Route path="franchise-vendors" element={<SuperAdminFranchiseVendors />} />
+        <Route path="franchise-vendors/:id" element={<SuperAdminFranchiseVendorDetail />} />
+        <Route path="franchise-applications" element={<SuperAdminFranchiseApplications />} />
+        <Route path="franchise-applications/:id" element={<SuperAdminFranchiseApplicationDetail />} />
         <Route path="admins" element={<Navigate to="/super-admin/dashboard" replace />} />
         <Route path="roles" element={<Navigate to="/super-admin/dashboard" replace />} />
         <Route path="mlm" element={<SuperAdminMLM />} />
@@ -285,6 +308,9 @@ export const AppRoutes = () => {
         <Route path="settings" element={<SuperAdminSettings />} />
         <Route path="spin-wheel" element={<SuperAdminSpinWheel />} />
         <Route path="offline-bills" element={<SuperAdminOfflineBills />} />
+        <Route path="legal-documents" element={<SuperAdminLegalDocuments />} />
+        <Route path="legal" element={<SuperAdminLegalDocuments />} />
+        <Route path="data-deletions" element={<SuperAdminDataDeletions />} />
         <Route path="profile" element={<SuperAdminProfile />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
@@ -300,6 +326,23 @@ export const AppRoutes = () => {
         <Route path="checkout" element={<Checkout />} />
         <Route path="join/shop/:publicToken" element={<ShopQRJoin />} />
         <Route path="v/:token" element={<ScanProcessor />} />
+
+        {/* Legal & Compliance Routes */}
+        <Route path="terms" element={<LegalDocumentView initialType="CUSTOMER_TERMS" />} />
+        <Route path="terms/customer" element={<LegalDocumentView initialType="CUSTOMER_TERMS" />} />
+        <Route path="terms/vendor" element={<LegalDocumentView initialType="VENDOR_TERMS" />} />
+        <Route path="vendor/terms" element={<LegalDocumentView initialType="VENDOR_TERMS" />} />
+        <Route path="privacy-policy" element={<LegalDocumentView initialType="PRIVACY_POLICY" />} />
+        <Route path="privacy" element={<LegalDocumentView initialType="PRIVACY_POLICY" />} />
+        <Route path="cookie-policy" element={<LegalDocumentView initialType="COOKIE_POLICY" />} />
+        <Route path="cookies" element={<LegalDocumentView initialType="COOKIE_POLICY" />} />
+        <Route path="refund-policy" element={<LegalDocumentView initialType="REFUND_POLICY" />} />
+        <Route path="returns" element={<LegalDocumentView initialType="REFUND_POLICY" />} />
+        <Route path="shipping-policy" element={<LegalDocumentView initialType="SHIPPING_POLICY" />} />
+        <Route path="shipping" element={<LegalDocumentView initialType="SHIPPING_POLICY" />} />
+        <Route path="grievance-policy" element={<LegalDocumentView initialType="GRIEVANCE_POLICY" />} />
+        <Route path="contact" element={<LegalDocumentView initialType="GRIEVANCE_POLICY" />} />
+        <Route path="grievance" element={<LegalDocumentView initialType="GRIEVANCE_POLICY" />} />
 
         {/* Legacy / Shared Account Shortcuts for smooth user experience */}
         <Route path="dashboard" element={<Navigate to="/customer/dashboard" replace />} />

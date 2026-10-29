@@ -223,7 +223,7 @@ export const AdminVendorList = () => {
                               : 'bg-rose-100 text-rose-800 border-rose-300'
                           }`}
                         >
-                          {v.isPaid || v.paymentStatus === 'PAID' ? '✓ PAID (₹1,999)' : 'UNPAID'}
+                          {v.isPaid || v.paymentStatus === 'PAID' ? 'PAID (₹1,999)' : 'UNPAID'}
                         </span>
                         {(!v.isPaid && v.paymentStatus !== 'PAID') && (
                           <button
